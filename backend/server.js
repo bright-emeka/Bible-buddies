@@ -7,6 +7,10 @@ const path = require('path');
 const fs = require('fs');
 
 const chatRoutes = require('./routes/chat');
+const usersRoutes = require('./routes/users');
+const postsRoutes = require('./routes/posts');
+const interactionsRoutes = require('./routes/interactions');
+const followsRoutes = require('./routes/follows');
 
 const app = express();
 const PORT = process.env.PORT || 5000;
@@ -20,6 +24,10 @@ app.use(express.json());
 
 // Routes
 app.use('/api/chat', chatRoutes);
+app.use('/api/users', usersRoutes);
+app.use('/api/posts', postsRoutes);
+app.use('/api/interactions', interactionsRoutes);
+app.use('/api/follows', followsRoutes);
 
 // Health check endpoint
 app.get('/health', (req, res) => {
