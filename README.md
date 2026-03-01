@@ -183,6 +183,21 @@ Fly.io, DigitalOcean App Platform).
    heroku create bible-social-app
    ```
 
+2. Set required config variables (see earlier section).
+
+> **Optional CI/CD**: You can automate build and deployment with GitHub Actions.  Add the following repository secrets in GitHub Settings → Secrets:
+>
+> - `HEROKU_API_KEY` – your Heroku API key (from `heroku auth:token`)
+> - `HEROKU_APP_NAME` – the name of your Heroku app (e.g. `bible-social-app`)
+> - `HEROKU_EMAIL` – the email associated with your Heroku account
+>
+> A workflow file (`.github/workflows/ci-cd.yml`) is included in this repo which will:
+>   * install dependencies and build the frontend on every push/PR to `main`
+>   * automatically deploy to Heroku when `main` is updated.
+>
+> Just commit and push; the Actions tab will show build/deploy status.
+
+
 2. Provision a MongoDB or other backing store if needed (here we use Firebase
    so no additional database is required).
 
