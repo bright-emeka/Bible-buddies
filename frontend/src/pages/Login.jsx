@@ -38,7 +38,7 @@ const Login = ({ onLoginSuccess }) => {
   return (
     <div className="login-container">
       <div className="login-card">
-        <h1>📖 Bible Social</h1>
+        <h1>Faith Buddies</h1>
         <p className="subtitle">AI-Powered Bible Chat</p>
 
         <form onSubmit={handleSubmit}>

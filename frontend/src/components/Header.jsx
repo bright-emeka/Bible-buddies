@@ -21,7 +21,7 @@ const Header = ({ userName, userId, onLogout, onUserClick }) => {
     <header className="header">
       <div className="header-container">
         <h1 className="app-title" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-          📖 Bible Social
+          📖 Faith Buddies
         </h1>
 
         <nav className="header-nav">

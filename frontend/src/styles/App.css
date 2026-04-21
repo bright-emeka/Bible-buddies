@@ -1,4 +1,3 @@
-/* Global Styles */
 * {
   margin: 0;
   padding: 0;
@@ -14,7 +13,6 @@ body {
   background-color: #f5f5f5;
 }
 
-/* App Layout */
 .App {
   height: 100vh;
   display: flex;
@@ -30,7 +28,6 @@ body {
   color: #666;
 }
 
-/* Header */
 .header {
   background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
   color: white;
@@ -77,7 +74,6 @@ body {
   background-color: #c0392b;
 }
 
-/* Login Page */
 .login-container {
   display: flex;
   align-items: center;
@@ -272,7 +268,6 @@ body {
   color: #2c3e50;
 }
 
-/* Chat Input Form */
 .chat-input-form {
   display: flex;
   gap: 1rem;
