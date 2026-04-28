@@ -3,6 +3,129 @@
   padding: 0;
   box-sizing: border-box;
 }
+/* Container for the whole list */
+.chat-list-container {
+  display: flex;
+  flex-direction: column;
+  background-color: #ffffff;
+  height: 100%;
+  overflow-y: auto;
+}
+
+/* Individual Chat Row */
+.chat-item-row {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border: none;
+  background: transparent;
+  width: 100%;
+  cursor: pointer;
+  transition: background 0.2s ease;
+  border-bottom: 1px solid #f0f2f5;
+}
+
+.chat-item-row:hover {
+  background-color: #f5f6f7;
+}
+
+/* Avatar Styling */
+.avatar-wrapper {
+  position: relative;
+  margin-right: 12px;
+  flex-shrink: 0;
+}
+
+.messenger-avatar, .avatar-placeholder {
+  width: 56px;
+  height: 56px;
+  border-radius: 50%;
+  object-fit: cover;
+}
+
+.avatar-placeholder {
+  background-color: #e4e6eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  color: #050505;
+}
+
+.online-status-dot {
+  position: absolute;
+  bottom: 3px;
+  right: 3px;
+  width: 14px;
+  height: 14px;
+  background-color: #31a24c;
+  border: 2px solid #ffffff;
+  border-radius: 50%;
+}
+
+/* Text Content Area */
+.chat-body {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden; /* Important for text-ellipsis */
+}
+
+.chat-main-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.chat-name {
+  font-weight: 600;
+  font-size: 1rem;
+  color: #050505;
+}
+
+.ai-name {
+  color: #6e8efb; /* Faith Buddies Branding Color */
+}
+
+.ai-tag {
+  margin-left: 6px;
+  background: #6e8efb;
+  color: white;
+  font-size: 0.65rem;
+  padding: 1px 6px;
+  border-radius: 8px;
+  text-transform: uppercase;
+}
+
+.chat-timestamp {
+  font-size: 0.8rem;
+  color: #65676b;
+}
+
+.chat-sub-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.chat-last-message {
+  font-size: 0.9rem;
+  color: #65676b;
+  margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 90%;
+}
+
+.unread-indicator-dot {
+  width: 12px;
+  height: 12px;
+  background-color: #0084ff;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
@@ -261,6 +384,133 @@ body {
   flex-direction: column;
   flex: 1;
   overflow: hidden;
+}
+
+.chat-list {
+  width: 100%;
+  max-width: 1000px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 1rem 0;
+}
+
+.chat-item {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  background: white;
+  border: 1px solid #e7e9ee;
+  border-radius: 12px;
+  padding: 0.95rem 1rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.chat-item:hover {
+  background-color: #f7f9fc;
+  box-shadow: 0 4px 14px rgba(36, 47, 66, 0.06);
+}
+
+.chat-item-ai {
+  background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+  border: 1.5px solid #d1d5db;
+}
+
+.chat-item-ai:hover {
+  background: linear-gradient(135deg, #e5e7eb 0%, #d1d5db 100%);
+  box-shadow: 0 6px 18px rgba(55, 65, 81, 0.12);
+}
+
+.chat-avatar {
+  flex-shrink: 0;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background-color: #dbe6f6;
+  color: #2c3e50;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 1rem;
+  overflow: hidden;
+}
+
+.chat-avatar-ai {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 1.2rem;
+}
+
+.chat-avatar img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.chat-item-content {
+  display: flex;
+  flex-direction: column;
+  flex-grow: 1;
+  min-width: 0;
+  gap: 0.35rem;
+}
+
+.chat-name-container {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.chat-name {
+  font-weight: 700;
+  color: #1f2937;
+}
+
+.ai-badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background-color: #2f80ed;
+  color: white;
+  font-size: 0.7rem;
+  font-weight: 700;
+  padding: 0.15rem 0.45rem;
+  border-radius: 10px;
+  letter-spacing: 0.5px;
+}
+
+.chat-preview {
+  color: #6b7280;
+  font-size: 0.95rem;
+  line-height: 1.4;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chat-meta {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.35rem;
+  flex-shrink: 0;
+}
+
+.chat-time {
+  color: #9ca3af;
+  font-size: 0.82rem;
+}
+
+.chat-unread-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: #2f80ed;
 }
 
 .chat-messages {
