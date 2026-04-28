@@ -28,6 +28,79 @@ body {
   color: #666;
 }
 
+.app-header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  z-index: 1000;
+}
+
+.brand-bar {
+  background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
+  color: white;
+  min-height: 52px;
+  display: flex;
+  align-items: center;
+  padding: 0 1.25rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.15);
+}
+
+.brand-title {
+  font-size: 1.2rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.nav-bar {
+  background: #34495e;
+  min-height: 56px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 0.75rem;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12);
+}
+
+.nav-items {
+  display: flex;
+  width: 100%;
+  max-width: 960px;
+  justify-content: space-around;
+  align-items: center;
+}
+
+.nav-item {
+  background: none;
+  border: none;
+  color: #dfe6ef;
+  font-size: 0.92rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.25rem;
+  padding: 0.65rem 0.5rem;
+  cursor: pointer;
+  border-bottom: 3px solid transparent;
+  transition: color 0.2s ease, border-color 0.2s ease, background-color 0.2s ease;
+}
+
+.nav-item:hover {
+  color: #ffffff;
+  background-color: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+}
+
+.nav-item.active {
+  color: #ffffff;
+  border-bottom-color: #ffffff;
+}
+
+.nav-item .icon {
+  font-size: 1.1rem;
+}
+
 .header {
   background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
   color: white;

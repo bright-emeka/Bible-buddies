@@ -1,53 +1,62 @@
 // Header component with app name and navigation
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { logOut } from '../services/auth';
+import { useNavigate, useLocation } from 'react-router-dom';
 
-const Header = ({ userName, userId, onLogout, onUserClick }) => {
+const Header = ({ userName, userId, onUserClick }) => {
   const navigate = useNavigate();
+  const location = useLocation();
 
-  const handleLogout = async () => {
-    try {
-      await logOut();
-      onLogout();
-      navigate('/login');
-    } catch (error) {
-      console.error('Logout error:', error);
-      alert('Error logging out');
+  const isActive = (path) => {
+    if (path === '/profile') {
+      return location.pathname.startsWith('/profile');
     }
+    return location.pathname === path;
   };
 
   return (
-    <header className="header">
-      <div className="header-container">
-        <h1 className="app-title" onClick={() => navigate('/')} style={{ cursor: 'pointer' }}>
-          📖 Faith Buddies
-        </h1>
+    <header className="app-header">
+      <div className="brand-bar">
+        <div className="brand-title" onClick={() => navigate('/')}>
+          Faith Buddies
+        </div>
+      </div>
 
-        <nav className="header-nav">
-          <button onClick={() => navigate('/feed')} className="nav-btn">
-            📰 Feed
+      <div className="nav-bar">
+        <div className="nav-items">
+          <button
+            type="button"
+            className={`nav-item ${isActive('/feed') ? 'active' : ''}`}
+            onClick={() => navigate('/feed')}
+          >
+            <span className="icon">📰</span>
+            <span>Feed</span>
           </button>
-          <button onClick={() => navigate('/chat')} className="nav-btn">
-            💬 Chat
-          </button>
-          <button onClick={() => navigate('/discover')} className="nav-btn">
-            🔍 Discover
-          </button>
-        </nav>
 
-        <div className="header-right">
-          <span className="user-name">Hello, {userName}</span>
-          {userId && (
-            <button
-              className="profile-btn"
-              onClick={() => onUserClick(userId)}
-            >
-              👤 Profile
-            </button>
-          )}
-          <button className="logout-btn" onClick={handleLogout}>
-            Logout
+          <button
+            type="button"
+            className={`nav-item ${isActive('/chat') ? 'active' : ''}`}
+            onClick={() => navigate('/chat')}
+          >
+            <span className="icon">💬</span>
+            <span>Chat</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-item ${isActive('/notifications') ? 'active' : ''}`}
+            onClick={() => navigate('/notifications')}
+          >
+            <span className="icon">🔔</span>
+            <span>Notifications</span>
+          </button>
+
+          <button
+            type="button"
+            className={`nav-item ${isActive('/profile') ? 'active' : ''}`}
+            onClick={() => onUserClick(userId)}
+          >
+            <span className="icon">👤</span>
+            <span>Profile</span>
           </button>
         </div>
       </div>

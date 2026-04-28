@@ -1,8 +1,16 @@
-// Profile page - displays user profile and their posts
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
-import { getUserProfile, getUserPosts, getFollowers, getFollowing, toggleFollow, checkFollowing, updateUserProfile } from '../services/api';
+import { 
+  getUserProfile, 
+  getUserPosts, 
+  getFollowers, 
+  getFollowing, 
+  toggleFollow, 
+  checkFollowing, 
+  updateUserProfile 
+} from '../services/api';
 import { auth } from '../services/firebase';
+import { onAuthStateChanged } from 'firebase/auth';
 import Post from '../components/Post';
 
 const Profile = () => {
@@ -16,51 +24,78 @@ const Profile = () => {
   const [activeTab, setActiveTab] = useState('posts');
   const [isEditing, setIsEditing] = useState(false);
   const [editForm, setEditForm] = useState({ name: '', bio: '', avatar: '', religion: '' });
-
-  const currentUser = auth.currentUser;
-  const isOwnProfile = currentUser && currentUser.uid === userId;
+  
+  // Track authenticated user state properly
+  const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
   useEffect(() => {
-    loadProfile();
-  }, [userId]);
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      setCurrentUser(user);
+    });
+    return () => unsubscribe();
+  }, []);
 
-  const loadProfile = async () => {
+  const isOwnProfile = currentUser && currentUser.uid === userId;
+
+  // Wrapped in useCallback to prevent unnecessary re-renders
+  const loadProfile = useCallback(async () => {
+    if (!userId || userId === 'undefined') {
+      console.error("Profile Error: userId is undefined. Check your Link tags or Routes.");
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
-
+      
+      // 1. Fetch User Data First
       const userData = await getUserProfile(userId);
+      
+      if (!userData) {
+        console.error(`Profile Error: No document found in Firestore for UID: ${userId}`);
+        setUser(null);
+        return;
+      }
+
       setUser(userData);
 
-      const userPosts = await getUserPosts(userId);
-      setPosts(userPosts);
+      // 2. Run other fetches in parallel to speed up loading
+      const [userPosts, followersList, followingList] = await Promise.all([
+        getUserPosts(userId),
+        getFollowers(userId),
+        getFollowing(userId)
+      ]);
 
-      const followersList = await getFollowers(userId);
-      setFollowers(followersList);
+      setPosts(userPosts || []);
+      setFollowers(followersList || []);
+      setFollowing(followingList || []);
 
-      const followingList = await getFollowing(userId);
-      setFollowing(followingList);
-
+      // 3. Check follow status if it's someone else's profile
       if (currentUser && currentUser.uid !== userId) {
         const result = await checkFollowing(userId);
-        setIsFollowing(result.following);
+        setIsFollowing(result?.following || false);
       }
+      
     } catch (error) {
-      console.error('Error loading profile:', error);
+      console.error('Error loading profile data:', error);
     } finally {
       setLoading(false);
     }
-  };
+  }, [userId, currentUser]);
+
+  useEffect(() => {
+    loadProfile();
+  }, [loadProfile]);
 
   const handleFollow = async () => {
     try {
       const result = await toggleFollow(userId);
       setIsFollowing(result.following);
       
-      // Update followers count
-      setUser({
-        ...user,
-        followersCount: result.following ? user.followersCount + 1 : user.followersCount - 1,
-      });
+      setUser(prev => ({
+        ...prev,
+        followersCount: result.following ? (prev.followersCount || 0) + 1 : (prev.followersCount || 1) - 1,
+      }));
     } catch (error) {
       console.error('Error toggling follow:', error);
     }
@@ -68,9 +103,9 @@ const Profile = () => {
 
   const handleEdit = () => {
     setEditForm({
-      name: user.name,
-      bio: user.bio,
-      avatar: user.avatar,
+      name: user.name || '',
+      bio: user.bio || '',
+      avatar: user.avatar || '',
       religion: user.religion || 'Christian',
     });
     setIsEditing(true);
@@ -79,32 +114,44 @@ const Profile = () => {
   const handleSaveEdit = async () => {
     try {
       await updateUserProfile(userId, editForm);
-      setUser({ ...user, ...editForm });
+      setUser(prev => ({ ...prev, ...editForm }));
       setIsEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
     }
   };
 
-  const handleCancelEdit = () => {
-    setIsEditing(false);
-  };
-
   if (loading) {
-    return <div className="loading">Loading profile...</div>;
+    return (
+      <div className="loading-container">
+        <div className="loader"></div>
+        <p>Loading profile...</p>
+      </div>
+    );
   }
 
   if (!user) {
-    return <div className="error">User not found</div>;
+    return (
+      <div className="error-container">
+        <h2>User not found</h2>
+        <p>We couldn't find a user with the ID: <strong>{userId}</strong></p>
+        <button onClick={() => window.history.back()}>Go Back</button>
+      </div>
+    );
   }
 
   return (
     <div className="profile-container">
       <div className="profile-header">
-        <img src={user.avatar} alt={user.name} className="profile-avatar" />
+        <img 
+          src={user.avatar || 'https://via.placeholder.com/150'} 
+          alt={user.name} 
+          className="profile-avatar" 
+        />
         <div className="profile-info">
           {isEditing ? (
             <div className="edit-form">
+              <h3>Edit Your Profile</h3>
               <div className="form-group">
                 <label>Name</label>
                 <input
@@ -144,17 +191,18 @@ const Profile = () => {
                 </select>
               </div>
               <div className="edit-actions">
-                <button onClick={handleSaveEdit}>Save</button>
-                <button onClick={handleCancelEdit}>Cancel</button>
+                <button className="save-btn" onClick={handleSaveEdit}>Save Changes</button>
+                <button className="cancel-btn" onClick={() => setIsEditing(false)}>Cancel</button>
               </div>
             </div>
           ) : (
             <>
               <h1>{user.name}</h1>
-              <p className="profile-bio">{user.bio}</p>
+              <p className="religion-tag">{user.religion}</p>
+              <p className="profile-bio">{user.bio || "No bio yet."}</p>
               <div className="profile-stats">
                 <div className="stat">
-                  <span className="stat-number">{user.postsCount || 0}</span>
+                  <span className="stat-number">{posts.length}</span>
                   <span className="stat-label">Posts</span>
                 </div>
                 <div className="stat">
@@ -168,61 +216,50 @@ const Profile = () => {
               </div>
             </>
           )}
-          {!isOwnProfile && (
-            <button
-              className={`follow-btn ${isFollowing ? 'following' : ''}`}
-              onClick={handleFollow}
-            >
-              {isFollowing ? 'Following' : 'Follow'}
-            </button>
-          )}
-          {isOwnProfile && !isEditing && (
-            <button className="edit-profile-btn" onClick={handleEdit}>
-              Edit Profile
-            </button>
-          )}
+
+          <div className="profile-actions">
+            {!isOwnProfile && (
+              <button
+                className={`follow-btn ${isFollowing ? 'following' : ''}`}
+                onClick={handleFollow}
+              >
+                {isFollowing ? 'Following' : 'Follow'}
+              </button>
+            )}
+            {isOwnProfile && !isEditing && (
+              <button className="edit-profile-btn" onClick={handleEdit}>
+                Edit Profile
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
       <div className="profile-tabs">
-        <button
-          className={`tab ${activeTab === 'posts' ? 'active' : ''}`}
-          onClick={() => setActiveTab('posts')}
-        >
-          Posts ({posts.length})
+        <button className={`tab ${activeTab === 'posts' ? 'active' : ''}`} onClick={() => setActiveTab('posts')}>
+          Posts
         </button>
-        <button
-          className={`tab ${activeTab === 'followers' ? 'active' : ''}`}
-          onClick={() => setActiveTab('followers')}
-        >
-          Followers ({followers.length})
+        <button className={`tab ${activeTab === 'followers' ? 'active' : ''}`} onClick={() => setActiveTab('followers')}>
+          Followers
         </button>
-        <button
-          className={`tab ${activeTab === 'following' ? 'active' : ''}`}
-          onClick={() => setActiveTab('following')}
-        >
-          Following ({following.length})
+        <button className={`tab ${activeTab === 'following' ? 'active' : ''}`} onClick={() => setActiveTab('following')}>
+          Following
         </button>
       </div>
 
       <div className="profile-content">
         {activeTab === 'posts' && (
           <div className="posts-list">
-            {posts.length === 0 ? (
-              <p>No posts yet</p>
-            ) : (
-              posts.map((post) => <Post key={post.id} post={post} />)
-            )}
+            {posts.length === 0 ? <p>No posts yet</p> : posts.map((post) => <Post key={post.id} post={post} />)}
           </div>
         )}
 
         {activeTab === 'followers' && (
           <div className="users-grid">
-            {followers.map((follower) => (
-              <div key={follower.uid} className="user-list-item">
-                <img src={follower.avatar} alt={follower.name} />
-                <h4>{follower.name}</h4>
-                <p>{follower.bio}</p>
+            {followers.length === 0 ? <p>No followers yet</p> : followers.map((f) => (
+              <div key={f.uid} className="user-list-item">
+                <img src={f.avatar || 'https://via.placeholder.com/50'} alt="" />
+                <h4>{f.name}</h4>
               </div>
             ))}
           </div>
@@ -230,11 +267,10 @@ const Profile = () => {
 
         {activeTab === 'following' && (
           <div className="users-grid">
-            {following.map((followingUser) => (
-              <div key={followingUser.uid} className="user-list-item">
-                <img src={followingUser.avatar} alt={followingUser.name} />
-                <h4>{followingUser.name}</h4>
-                <p>{followingUser.bio}</p>
+            {following.length === 0 ? <p>Not following anyone yet</p> : following.map((f) => (
+              <div key={f.uid} className="user-list-item">
+                <img src={f.avatar || 'https://via.placeholder.com/50'} alt="" />
+                <h4>{f.name}</h4>
               </div>
             ))}
           </div>

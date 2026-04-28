@@ -8,6 +8,7 @@ import Chat from './pages/Chat.jsx';
 import Feed from './pages/Feed.jsx';
 import Profile from './pages/Profile.jsx';
 import Discover from './pages/Discover.jsx';
+import Notifications from './pages/Notifications.jsx';
 import Header from './components/Header.jsx';
 
 function AppContent() {
@@ -77,6 +78,7 @@ function AppContent() {
             <Routes>
               <Route path="/feed" element={<Feed />} />
               <Route path="/chat" element={<Chat userName={user.email} />} />
+              <Route path="/notifications" element={<Notifications />} />
               <Route path="/profile/:userId" element={<Profile />} />
               <Route path="/discover" element={<Discover onUserClick={handleUserClick} />} />
               <Route path="/" element={<Feed />} />
