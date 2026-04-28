@@ -1,16 +1,22 @@
 // Main Express server
-require('express-async-errors');
-const express = require('express');
-const cors = require('cors');
-require('dotenv').config();
-const path = require('path');
-const fs = require('fs');
+import 'express-async-errors';
+import express from 'express';
+import cors from 'cors';
+import dotenv from 'dotenv';
+import path from 'path';
+import fs from 'fs';
+import { fileURLToPath } from 'url';
 
-const chatRoutes = require('./routes/chat');
-const usersRoutes = require('./routes/users');
-const postsRoutes = require('./routes/posts');
-const interactionsRoutes = require('./routes/interactions');
-const followsRoutes = require('./routes/follows');
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+import chatRoutes from './routes/chat.js';
+import usersRoutes from './routes/users.js';
+import postsRoutes from './routes/posts.js';
+import interactionsRoutes from './routes/interactions.js';
+import followsRoutes from './routes/follows.js';
+
+dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;

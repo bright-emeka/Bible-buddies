@@ -1,7 +1,7 @@
 // Interactions routes - handles likes and comments
-const express = require('express');
-const { db } = require('../config/firebase');
-const { verifyToken } = require('../middleware/auth');
+import express from 'express';
+import { db } from '../config/firebase.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -187,4 +187,4 @@ router.delete('/:postId/comments/:commentId', verifyToken, async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,6 +1,8 @@
 // Firebase Admin configuration
-const admin = require('firebase-admin');
-require('dotenv').config();
+import admin from 'firebase-admin';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 let db, auth, adminInstance;
 
@@ -120,4 +122,4 @@ try {
   };
 }
 
-module.exports = { admin, db, auth, adminInstance };
+export { db, auth, admin as adminInstance };

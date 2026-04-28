@@ -1,5 +1,5 @@
 // Authentication middleware to verify Firebase tokens
-const { auth } = require('../config/firebase');
+import { auth } from '../config/firebase.js';
 
 // Verify Firebase ID token
 const verifyToken = async (req, res, next) => {
@@ -39,4 +39,4 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
-module.exports = { verifyToken };
+export { verifyToken };

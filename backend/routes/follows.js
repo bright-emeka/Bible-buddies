@@ -1,7 +1,7 @@
 // Follows routes - handles user following relationships
-const express = require('express');
-const { db } = require('../config/firebase');
-const { verifyToken } = require('../middleware/auth');
+import express from 'express';
+import { db } from '../config/firebase.js';
+import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
@@ -188,4 +188,4 @@ router.get('/:userId/following', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;
