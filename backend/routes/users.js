@@ -82,7 +82,7 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-// Update user profile
+
 router.put('/:userId', verifyToken, async (req, res) => {
   try {
     const { userId: paramUserId } = req.params;
