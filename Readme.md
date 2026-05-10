@@ -1,4 +1,4 @@
-# Faith Buddies 🕊️
+hi# Faith Buddies 🕊️
 
 **Faith Buddies** is a specialized social networking platform designed to foster community, spiritual growth, and seamless communication among believers. Built with a robust fullstack architecture, it focuses on real-time interaction and user-centric community management.
 
@@ -16,13 +16,12 @@
 
 **Frontend:**
 * **React.js:** For building a responsive, component-based user interface.
-* **State Management:** [Mention if you used Redux, Context API, etc.]
-* **CSS/Styling:** [Mention if you used Tailwind CSS, Styled Components, or Bootstrap]
-
+* **State Management:** 
+* **CSS/Styling:**
 **Backend:**
 * **Node.js & Express:** Providing a scalable RESTful API and handling server-side logic.
-* **Database:** [Mention if you used MongoDB, PostgreSQL, or Firebase]
-* **Authentication:** [Mention if you used JWT or Firebase Auth]
+* **Database:**  Firebase 
+* **Authentication:** Firebase AUTH 
 
 ## 🏗️ Architecture
 
@@ -36,9 +35,8 @@ To get a local copy up and running, follow these steps:
 
 ### Prerequisites
 * npm or yarn installed
-* [Mention any specific DB setup needed]
 
 ### Installation
 1. **Clone the repo:**
    ```bash
-   git clone [https://github.com/yourusername/faith-buddies.git](https://github.com/yourusername/faith-buddies.git)
+   git clone https://github.com/bright-emeka/faith-buddies.git
