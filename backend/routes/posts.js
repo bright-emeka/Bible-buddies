@@ -29,9 +29,9 @@ router.post('/', verifyToken, async (req, res) => {
 
     const docRef = await postsRef.add(postDoc);
 
-    // Update user's posts count
+    // Update user's posts count using atomic increment
     await db.collection('users').doc(userId).update({
-      postsCount: (await db.collection('users').doc(userId).get()).data()?.postsCount || 0 + 1,
+      postsCount: require('firebase-admin').firestore.FieldValue.increment(1),
     });
 
     res.status(201).json({
@@ -48,7 +48,7 @@ router.post('/', verifyToken, async (req, res) => {
 router.get('/feed', verifyToken, async (req, res) => {
   try {
     const { userId } = req;
-    const lastTimestamp = req.query.lastTimestamp || new Date().toISOString();
+    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : new Date();
 
     // Get users that current user is following
     const followsSnapshot = await db
@@ -61,25 +61,30 @@ router.get('/feed', verifyToken, async (req, res) => {
       followingIds.push(doc.data().followingId);
     });
 
-    // Get posts from followed users
+    // Get posts from followed users with proper pagination
     const postsSnapshot = await db
       .collection('posts')
       .where('userId', 'in', followingIds)
       .orderBy('createdAt', 'desc')
-      .endAt(lastTimestamp)
+      .startAt(lastTimestamp)
       .limit(20)
       .get();
 
-    const posts = [];
-    for (const postDoc of postsSnapshot.docs) {
+    // Batch fetch all user documents to avoid N+1 query problem
+    const userIds = [...new Set(postsSnapshot.docs.map(doc => doc.data().userId))];
+    const userDocs = await Promise.all(
+      userIds.map(id => db.collection('users').doc(id).get())
+    );
+    const usersMap = new Map(userDocs.map(doc => [doc.id, doc.data()]));
+
+    const posts = postsSnapshot.docs.map((postDoc) => {
       const post = postDoc.data();
-      const userDoc = await db.collection('users').doc(post.userId).get();
-      posts.push({
+      return {
         id: postDoc.id,
         ...post,
-        author: userDoc.data(),
-      });
-    }
+        author: usersMap.get(post.userId),
+      };
+    });
 
     res.json(posts);
   } catch (error) {
@@ -92,24 +97,20 @@ router.get('/feed', verifyToken, async (req, res) => {
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const lastTimestamp = req.query.lastTimestamp || new Date().toISOString();
+    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : new Date();
 
     const postsSnapshot = await db
       .collection('posts')
       .where('userId', '==', userId)
       .orderBy('createdAt', 'desc')
-      .endAt(lastTimestamp)
+      .startAt(lastTimestamp)
       .limit(20)
       .get();
 
-    const posts = [];
-    for (const postDoc of postsSnapshot.docs) {
-      const post = postDoc.data();
-      posts.push({
-        id: postDoc.id,
-        ...post,
-      });
-    }
+    const posts = postsSnapshot.docs.map((postDoc) => ({
+      id: postDoc.id,
+      ...postDoc.data(),
+    }));
 
     res.json(posts);
   } catch (error) {
@@ -139,16 +140,21 @@ router.get('/:postId', async (req, res) => {
       .orderBy('createdAt', 'desc')
       .get();
 
-    const comments = [];
-    for (const commentDoc of commentsSnapshot.docs) {
+    // Batch fetch all comment author documents
+    const commentUserIds = [...new Set(commentsSnapshot.docs.map(doc => doc.data().userId))];
+    const commentUserDocs = await Promise.all(
+      commentUserIds.map(id => db.collection('users').doc(id).get())
+    );
+    const commentUsersMap = new Map(commentUserDocs.map(doc => [doc.id, doc.data()]));
+
+    const comments = commentsSnapshot.docs.map((commentDoc) => {
       const comment = commentDoc.data();
-      const commentUserDoc = await db.collection('users').doc(comment.userId).get();
-      comments.push({
+      return {
         id: commentDoc.id,
         ...comment,
-        author: commentUserDoc.data(),
-      });
-    }
+        author: commentUsersMap.get(comment.userId),
+      };
+    });
 
     res.json({
       id: postId,

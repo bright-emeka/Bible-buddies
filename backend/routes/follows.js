@@ -2,6 +2,7 @@
 import express from 'express';
 import { db } from '../config/firebase.js';
 import { verifyToken } from '../middleware/auth.js';
+import admin from 'firebase-admin';
 
 const router = express.Router();
 
@@ -31,57 +32,45 @@ router.post('/:targetUserId/follow', verifyToken, async (req, res) => {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const result = await db.runTransaction(async (transaction) => {
-      const followsRef = db.collection('follows');
-      const existingFollowQuery = followsRef
-        .where('followerId', '==', followerId)
-        .where('followingId', '==', targetUserId);
-      
-      const existingFollow = await transaction.get(existingFollowQuery);
+    // Check if already following (query outside transaction)
+    const existingFollowQuery = await db
+      .collection('follows')
+      .where('followerId', '==', followerId)
+      .where('followingId', '==', targetUserId)
+      .get();
 
+    const alreadyFollowing = !existingFollowQuery.empty;
+    const existingFollowRef = alreadyFollowing ? existingFollowQuery.docs[0].ref : null;
+
+    // Use transaction only for atomic updates
+    const result = await db.runTransaction(async (transaction) => {
       const followerRef = db.collection('users').doc(followerId);
       const targetRef = db.collection('users').doc(targetUserId);
 
-      if (!existingFollow.empty) {
-        // Already following, so unfollow
-        transaction.delete(existingFollow.docs[0].ref);
-
-        // Decrease counts
-        const followerDoc = await transaction.get(followerRef);
-        const followerData = followerDoc.data();
+      if (alreadyFollowing) {
+        // Unfollow
+        transaction.delete(existingFollowRef);
         transaction.update(followerRef, {
-          followingCount: Math.max(0, (followerData?.followingCount || 0) - 1),
+          followingCount: admin.firestore.FieldValue.increment(-1),
         });
-
-        const targetDoc = await transaction.get(targetRef);
-        const targetData = targetDoc.data();
         transaction.update(targetRef, {
-          followersCount: Math.max(0, (targetData?.followersCount || 0) - 1),
+          followersCount: admin.firestore.FieldValue.increment(-1),
         });
-
         return { following: false, message: 'User unfollowed' };
       } else {
-        // Follow the user
-        const newFollowRef = followsRef.doc(); // Generate new doc ref
+        // Follow
+        const newFollowRef = db.collection('follows').doc();
         transaction.set(newFollowRef, {
           followerId,
           followingId: targetUserId,
           createdAt: new Date().toISOString(),
         });
-
-        // Increase counts
-        const followerDoc = await transaction.get(followerRef);
-        const followerData = followerDoc.data();
         transaction.update(followerRef, {
-          followingCount: (followerData?.followingCount || 0) + 1,
+          followingCount: admin.firestore.FieldValue.increment(1),
         });
-
-        const targetDoc = await transaction.get(targetRef);
-        const targetData = targetDoc.data();
         transaction.update(targetRef, {
-          followersCount: (targetData?.followersCount || 0) + 1,
+          followersCount: admin.firestore.FieldValue.increment(1),
         });
-
         return { following: true, message: 'User followed' };
       }
     });
@@ -140,13 +129,15 @@ router.get('/:userId/followers', async (req, res) => {
       .limit(limit)
       .get();
 
-    const followers = [];
-    for (const followDoc of followsSnapshot.docs) {
-      const followerDoc = await db.collection('users').doc(followDoc.data().followerId).get();
-      if (followerDoc.exists) {
-        followers.push(followerDoc.data());
-      }
-    }
+    // Batch fetch all follower documents
+    const followerIds = followsSnapshot.docs.map(doc => doc.data().followerId);
+    const followerDocs = await Promise.all(
+      followerIds.map(id => db.collection('users').doc(id).get())
+    );
+
+    const followers = followerDocs
+      .filter(doc => doc.exists)
+      .map(doc => doc.data());
 
     res.json(followers);
   } catch (error) {
@@ -173,13 +164,15 @@ router.get('/:userId/following', async (req, res) => {
       .limit(limit)
       .get();
 
-    const following = [];
-    for (const followDoc of followsSnapshot.docs) {
-      const followingDoc = await db.collection('users').doc(followDoc.data().followingId).get();
-      if (followingDoc.exists) {
-        following.push(followingDoc.data());
-      }
-    }
+    // Batch fetch all following user documents
+    const followingIds = followsSnapshot.docs.map(doc => doc.data().followingId);
+    const followingDocs = await Promise.all(
+      followingIds.map(id => db.collection('users').doc(id).get())
+    );
+
+    const following = followingDocs
+      .filter(doc => doc.exists)
+      .map(doc => doc.data());
 
     res.json(following);
   } catch (error) {

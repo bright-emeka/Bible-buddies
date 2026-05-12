@@ -7,10 +7,10 @@ const verifyToken = async (req, res, next) => {
     const authHeader = req.headers.authorization;
 
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
-      // In development mode, allow requests without token
+      // In development mode, allow requests with a test token
       if (process.env.NODE_ENV !== 'production') {
-        console.warn('⚠️  DEV MODE: Allowing request without token');
-        req.userId = 'dev-user-' + Math.random().toString(36).substr(2, 9);
+        console.warn('⚠️  DEV MODE: Allowing request with dev user');
+        req.userId = 'dev-user-demo'; // Use fixed dev user ID to avoid race conditions
         return next();
       }
       return res.status(401).json({ error: 'No token provided' });
@@ -23,10 +23,10 @@ const verifyToken = async (req, res, next) => {
       const decodedToken = await auth.verifyIdToken(token);
       req.userId = decodedToken.uid;
     } catch (verifyError) {
-      // In development mode, extract user ID from a test token format
-      if (process.env.NODE_ENV !== 'production') {
-        console.warn('⚠️  DEV MODE: Using token as user ID');
-        req.userId = token.substring(0, 28) || 'dev-user';
+      // In development mode, use a stable dev user ID
+      if (process.env.NODE_ENV !== 'production' && token === 'dev-token') {
+        console.warn('⚠️  DEV MODE: Using dev token');
+        req.userId = 'dev-user-demo';
       } else {
         throw verifyError;
       }

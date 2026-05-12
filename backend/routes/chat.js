@@ -125,7 +125,13 @@ router.post('/message', verifyToken, async (req, res) => {
     // Get user's chat history from Firestore
     const chatDocRef = db.collection('chats').doc(userId);
     const chatDoc = await chatDocRef.get();
-    const chatMessages = chatDoc.exists ? chatDoc.data().messages || [] : [];
+    let chatMessages = chatDoc.exists ? chatDoc.data().messages || [] : [];
+
+    // Limit chat history to last 20 messages to prevent unbounded growth and token limits
+    const MAX_MESSAGES = 20;
+    if (chatMessages.length > MAX_MESSAGES) {
+      chatMessages = chatMessages.slice(-MAX_MESSAGES);
+    }
 
     // Get user's religion from profile
     const userDoc = await db.collection('users').doc(userId).get();
@@ -149,7 +155,7 @@ router.post('/message', verifyToken, async (req, res) => {
       });
     }
 
-    // Call OpenAI Chat Completion API
+    // Call OpenAI Chat Completion API with timeout
     console.log('📡 Sending request to OpenAI API...');
     const response = await axios.post(
       'https://api.openai.com/v1/chat/completions',
@@ -164,6 +170,7 @@ router.post('/message', verifyToken, async (req, res) => {
           Authorization: `Bearer ${process.env.OPENAI_API_KEY}`,
           'Content-Type': 'application/json',
         },
+        timeout: 30000, // 30 second timeout
       }
     );
 

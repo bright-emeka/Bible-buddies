@@ -6,7 +6,25 @@ const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
+  timeout: 30000, // 30 second timeout to prevent hanging requests
 });
+
+// Retry logic for failed requests
+const retryWithBackoff = async (fn, maxRetries = 3) => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      return await fn();
+    } catch (error) {
+      // Only retry on network errors or 5xx errors, not 4xx
+      if (attempt === maxRetries || (error.response && error.response.status < 500)) {
+        throw error;
+      }
+      // Exponential backoff: 1s, 2s, 4s
+      const delay = Math.pow(2, attempt - 1) * 1000;
+      await new Promise(resolve => setTimeout(resolve, delay));
+    }
+  }
+};
 
 // Add auth token to requests
 export const setAuthToken = (token) => {
@@ -20,14 +38,16 @@ export const setAuthToken = (token) => {
 // Send message to AI chat
 export const sendMessage = async (message, userId) => {
   try {
-    const response = await api.post('/api/chat/message', {
-      message,
-      userId,
-    });
+    const response = await retryWithBackoff(() =>
+      api.post('/api/chat/message', {
+        message,
+        userId,
+      })
+    );
     return response.data;
   } catch (error) {
-    console.error('Error sending message:', error);
-    throw error;
+    console.error('Error sending message:', error.message || error);
+    throw new Error(error.response?.data?.error || 'Failed to send message');
   }
 };
 
@@ -109,13 +129,15 @@ export const createPost = async (content, image) => {
 // Get feed
 export const getFeed = async (lastTimestamp) => {
   try {
-    const response = await api.get('/api/posts/feed', {
-      params: { lastTimestamp },
-    });
+    const response = await retryWithBackoff(() =>
+      api.get('/api/posts/feed', {
+        params: { lastTimestamp },
+      })
+    );
     return response.data;
   } catch (error) {
-    console.error('Error fetching feed:', error);
-    throw error;
+    console.error('Error fetching feed:', error.message || error);
+    throw new Error(error.response?.data?.error || 'Failed to fetch feed');
   }
 };
 
@@ -220,11 +242,13 @@ export const deleteComment = async (postId, commentId) => {
 // Toggle follow
 export const toggleFollow = async (targetUserId) => {
   try {
-    const response = await api.post(`/api/follows/${targetUserId}/follow`);
+    const response = await retryWithBackoff(() =>
+      api.post(`/api/follows/${targetUserId}/follow`)
+    );
     return response.data;
   } catch (error) {
-    console.error('Error toggling follow:', error);
-    throw error;
+    console.error('Error toggling follow:', error.message || error);
+    throw new Error(error.response?.data?.error || 'Failed to toggle follow');
   }
 };
 

@@ -2,6 +2,7 @@
 import express from 'express';
 import { db } from '../config/firebase.js';
 import { verifyToken } from '../middleware/auth.js';
+import admin from 'firebase-admin';
 
 const router = express.Router();
 
@@ -22,11 +23,9 @@ router.post('/:postId/like', verifyToken, async (req, res) => {
       const likeDoc = likeQuery.docs[0];
       await likeDoc.ref.delete();
 
-      // Decrease likes count
-      const postRef = db.collection('posts').doc(postId);
-      const postData = (await postRef.get()).data();
-      await postRef.update({
-        likesCount: Math.max(0, (postData?.likesCount || 0) - 1),
+      // Decrease likes count using atomic decrement
+      await db.collection('posts').doc(postId).update({
+        likesCount: admin.firestore.FieldValue.increment(-1),
       });
 
       res.json({ liked: false, message: 'Post unliked' });
@@ -38,11 +37,9 @@ router.post('/:postId/like', verifyToken, async (req, res) => {
         createdAt: new Date().toISOString(),
       });
 
-      // Increase likes count
-      const postRef = db.collection('posts').doc(postId);
-      const postData = (await postRef.get()).data();
-      await postRef.update({
-        likesCount: (postData?.likesCount || 0) + 1,
+      // Increase likes count using atomic increment
+      await db.collection('posts').doc(postId).update({
+        likesCount: admin.firestore.FieldValue.increment(1),
       });
 
       res.json({ liked: true, message: 'Post liked' });
@@ -96,11 +93,9 @@ router.post('/:postId/comments', verifyToken, async (req, res) => {
       .collection('comments')
       .add(commentDoc);
 
-    // Update post comments count
-    const postRef = db.collection('posts').doc(postId);
-    const postData = (await postRef.get()).data();
-    await postRef.update({
-      commentsCount: (postData?.commentsCount || 0) + 1,
+    // Update post comments count using atomic increment
+    await db.collection('posts').doc(postId).update({
+      commentsCount: admin.firestore.FieldValue.increment(1),
     });
 
     // Get comment author info
@@ -121,33 +116,39 @@ router.post('/:postId/comments', verifyToken, async (req, res) => {
 router.get('/:postId/comments', async (req, res) => {
   try {
     const { postId } = req.params;
-    const lastTimestamp = req.query.lastTimestamp || new Date().toISOString();
+    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : new Date();
 
     const commentsSnapshot = await db
       .collection('posts')
       .doc(postId)
       .collection('comments')
       .orderBy('createdAt', 'desc')
-      .endAt(lastTimestamp)
+      .startAt(lastTimestamp)
       .limit(20)
       .get();
 
-    const comments = [];
-    for (const commentDoc of commentsSnapshot.docs) {
+    // Batch fetch all comment author documents
+    const commentUserIds = [...new Set(commentsSnapshot.docs.map(doc => doc.data().userId))];
+    const commentUserDocs = await Promise.all(
+      commentUserIds.map(id => db.collection('users').doc(id).get())
+    );
+    const commentUsersMap = new Map(commentUserDocs.map(doc => [doc.id, doc.data()]));
+
+    const comments = commentsSnapshot.docs.map((commentDoc) => {
       const comment = commentDoc.data();
-      const userDoc = await db.collection('users').doc(comment.userId).get();
-      comments.push({
+      return {
         id: commentDoc.id,
         ...comment,
-        author: userDoc.data(),
-      });
-    }
+        author: commentUsersMap.get(comment.userId),
+      };
+    });
 
     res.json(comments);
   } catch (error) {
     console.error('Error fetching comments:', error);
     res.status(500).json({ error: 'Failed to fetch comments' });
   }
+});
 });
 
 // Delete comment
