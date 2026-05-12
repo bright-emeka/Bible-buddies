@@ -1,15 +1,11 @@
 // Feed page - displays posts from followed users
 import React, { useState, useEffect } from 'react';
 import { getFeed, deletePost } from '../services/api';
-import { auth } from '../services/firebase';
 import Post from '../components/Post';
 
 const Feed = () => {
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [newPostContent, setNewPostContent] = useState('');
-
-  const currentUser = auth.currentUser;
 
   useEffect(() => {
     loadFeed();

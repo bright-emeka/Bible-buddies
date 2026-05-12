@@ -2,6 +2,7 @@
 import express from 'express';
 import { db } from '../config/firebase.js';
 import { verifyToken } from '../middleware/auth.js';
+import admin from 'firebase-admin';
 
 const router = express.Router();
 
@@ -31,7 +32,7 @@ router.post('/', verifyToken, async (req, res) => {
 
     // Update user's posts count using atomic increment
     await db.collection('users').doc(userId).update({
-      postsCount: require('firebase-admin').firestore.FieldValue.increment(1),
+      postsCount: admin.firestore.FieldValue.increment(1),
     });
 
     res.status(201).json({

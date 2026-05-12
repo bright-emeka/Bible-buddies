@@ -1,5 +1,5 @@
 // Discover page - shows suggested users and trending posts
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { searchUsers } from '../services/api';
 import UserCard from '../components/UserCard';
 

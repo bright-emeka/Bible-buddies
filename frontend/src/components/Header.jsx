@@ -2,7 +2,7 @@
 import React from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-const Header = ({ userName, userId, onUserClick }) => {
+const Header = ({ userId, onUserClick }) => {
   const navigate = useNavigate();
   const location = useLocation();
 

@@ -18,6 +18,8 @@ import followsRoutes from './routes/follows.js';
 
 dotenv.config();
 
+const apiKey = process.env.OPENAI_API_KEY;
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 

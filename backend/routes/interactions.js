@@ -173,11 +173,9 @@ router.delete('/:postId/comments/:commentId', verifyToken, async (req, res) => {
 
     await commentDoc.ref.delete();
 
-    // Update post comments count
-    const postRef = db.collection('posts').doc(postId);
-    const postData = (await postRef.get()).data();
-    await postRef.update({
-      commentsCount: Math.max(0, (postData?.commentsCount || 0) - 1),
+    // Update post comments count using atomic decrement
+    await db.collection('posts').doc(postId).update({
+      commentsCount: admin.firestore.FieldValue.increment(-1),
     });
 
     res.json({ message: 'Comment deleted' });

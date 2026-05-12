@@ -53,10 +53,6 @@ function AppContent() {
     return unsubscribe;
   }, [navigate]);
 
-  const handleLogout = () => {
-    setUser(null);
-  };
-
   const handleUserClick = (userId) => {
     navigate(`/profile/${userId}`);
   };
@@ -70,9 +66,7 @@ function AppContent() {
       {user ? (
         <>
           <Header 
-            userName={user.email}
             userId={user.uid}
-            onLogout={handleLogout}
             onUserClick={handleUserClick}
           />
           <main className="main-content">
