@@ -42,7 +42,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      # The installation must happen in the same job as the deployment
+      
       - name: Install Heroku CLI
         run: curl https://cli-assets.heroku.com/install.sh | sh
 
