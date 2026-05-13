@@ -32,11 +32,6 @@ jobs:
           npm install
           npm run build
 
-      - name: Install Heroku CLI
-        run: curl https://cli-assets.heroku.com/install.sh | sh
-
-      
-
   deploy:
     name: Deploy to Heroku
     runs-on: ubuntu-latest
@@ -47,11 +42,14 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      # The installation must happen in the same job as the deployment
+      - name: Install Heroku CLI
+        run: curl https://cli-assets.heroku.com/install.sh | sh
+
       - name: Deploy via Heroku action
         uses: akhileshns/heroku-deploy@v3.12.14
         with:
           heroku_api_key: ${{ secrets.HEROKU_API_KEY }}
           heroku_app_name: ${{ secrets.HEROKU_APP_NAME }}
           heroku_email: ${{ secrets.HEROKU_EMAIL }}
-          # Set to true if your project requires a specific Docker environment
           usedocker: false
