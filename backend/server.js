@@ -1,4 +1,3 @@
-// Main Express server
 import 'express-async-errors';
 import express from 'express';
 import cors from 'cors';
@@ -10,6 +9,7 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+// Import Routes
 import chatRoutes from './routes/chat.js';
 import usersRoutes from './routes/users.js';
 import postsRoutes from './routes/posts.js';
@@ -35,29 +35,32 @@ app.use('/api/posts', postsRoutes);
 app.use('/api/interactions', interactionsRoutes);
 app.use('/api/follows', followsRoutes);
 
-// Health check endpoint
+// Health check
 app.get('/health', (req, res) => {
   res.json({ status: 'Server is running', timestamp: new Date().toISOString() });
 });
 
 // --- SERVE FRONTEND ---
-const buildPath = path.join(__dirname, '..', 'frontend', 'build');
-const distPath = path.join(__dirname, '..', 'frontend', 'dist');
+// We check for the build folder relative to the root of the project
+const frontendPath = path.join(process.cwd(), 'frontend');
+const distPath = path.join(frontendPath, 'dist'); // Vite default
+const buildPath = path.join(frontendPath, 'build'); // CRA default
+
 const staticPath = fs.existsSync(distPath) ? distPath : buildPath;
 
 if (fs.existsSync(staticPath)) {
-  console.log(`Serving static files from: ${staticPath}`);
+  console.log(`✅ Frontend found! Serving from: ${staticPath}`);
   app.use(express.static(staticPath));
-  
 
+  // Catch-all route to serve the React index.html for any non-API route
   app.get('*', (req, res) => {
     res.sendFile(path.join(staticPath, 'index.html'));
   });
 } else {
-  console.warn('⚠️ Frontend static folder not found. API mode only.');
+  console.warn('⚠️ Frontend folder not found. Running in API-only mode.');
 }
 
-// Error handling middleware
+// Error handling
 app.use((error, req, res, next) => {
   console.error('Error:', error);
   res.status(error.status || 500).json({
@@ -65,8 +68,7 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Start server
 app.listen(PORT, () => {
-  console.log(`🙏 Bible Social API running on port ${PORT}`);
+  console.log(`🚀 Server active on port ${PORT}`);
   console.log('Environment:', process.env.NODE_ENV || 'development');
 });
