@@ -4,14 +4,14 @@ import { getFirestore } from "firebase/firestore";
 import { getAnalytics } from "firebase/analytics"; 
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCj7vAwDZKkqlf1e9kLko4ztol6ofxvwOc",
-  authDomain: "faith-social-ef895.firebaseapp.com",
-  databaseURL: "https://faith-social-ef895-default-rtdb.firebaseio.com",
-  projectId: "faith-social-ef895",
-  storageBucket: "faith-social-ef895.firebasestorage.app",
-  messagingSenderId: "485831767405",
-  appId: "1:485831767405:web:c858ecef63de122f51d664",
-  measurementId: "G-C5M1353WGT"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  databaseURL: import.meta.env.VITE_FIREBASE_DATABASE_URL,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID,
+  measurementId: import.meta.env.VITE_FIREBASE_MEASUREMENT_ID
 };
 
 

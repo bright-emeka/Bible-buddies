@@ -71,13 +71,12 @@ function AppContent() {
           />
           <main className="main-content">
             <Routes>
-              <Route path="/feed" element={<Feed />} />
-             <Route path="/chat" element={<ChatHub userEmail={user.email} />} />
+<Route path="/feed" element={<Feed />} />
+              <Route path="/chat" element={<ChatHub userEmail={user.email} />} />
               <Route path="/notifications" element={<Notifications />} />
-              <Route path="/profile/:userId" element={<Profile />} />
-              <Route path="/discover" element={<Discover onUserClick={handleUserClick} />} />
-              <Route path="/" element={<Feed />} />
-              <Route path="/chat" element={<ChatHub />} />
+               <Route path="/profile/:userId" element={<Profile />} />
+               <Route path="/discover" element={<Discover onUserClick={handleUserClick} />} />
+               <Route path="/" element={<Feed />} />
             </Routes>
           </main>
         </>
