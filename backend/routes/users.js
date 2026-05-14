@@ -5,46 +5,53 @@ import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Get or create user profile
+/**
+ * HELPER FUNCTION: Create Default Profile
+ * Ensures a consistent user object structure
+ */
+const createDefaultProfile = async (userRef, userId, data = {}) => {
+  const { name, email, bio, avatar, religion } = data;
+  const newProfile = {
+    uid: userId,
+    name: name || email?.split('@')[0] || 'New Believer',
+    email: email || '',
+    bio: bio || 'Faithful believer sharing wisdom and inspiration',
+    avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email || 'User')}&background=random`,
+    religion: religion || 'Christian',
+    createdAt: new Date().toISOString(),
+    followersCount: 0,
+    followingCount: 0,
+    postsCount: 0,
+  };
+  await userRef.set(newProfile);
+  return newProfile;
+};
+
+// --- ROUTES ---
+
+// Get or create user profile (Used during Login/Signup)
 router.post('/profile', verifyToken, async (req, res) => {
   try {
     const { userId } = req;
-    const { name, email, bio, avatar, religion } = req.body;
-
     const userRef = db.collection('users').doc(userId);
     const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      // Create new user profile
-      await userRef.set({
-        uid: userId,
-        name: name || email?.split('@')[0] || 'User',
-        email,
-        bio: bio || 'Faithful believer sharing wisdom and inspiration',
-        avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email)}&background=random`,
-        religion: religion || 'Christian',
-        createdAt: new Date().toISOString(),
-        followersCount: 0,
-        followingCount: 0,
-        postsCount: 0,
-      });
+      const newProfile = await createDefaultProfile(userRef, userId, req.body);
+      return res.json(newProfile);
     }
 
-    const updated = await userRef.get();
-    res.json(updated.data());
+    res.json(userDoc.data());
   } catch (error) {
-    console.error('Error creating/getting user profile:', error);
+    console.error('Error managing user profile:', error);
     res.status(500).json({ error: 'Failed to manage user profile' });
   }
 });
 
-// Search users - MUST be before /:userId route to prevent 'search' being treated as a userId
+// Search users
 router.get('/search/:query', async (req, res) => {
   try {
     const { query } = req.params;
-    const q = query.toLowerCase();
-
-    // Firestore doesn't have great full-text search, so we do prefix search
     const snapshot = await db
       .collection('users')
       .orderBy('name')
@@ -54,10 +61,7 @@ router.get('/search/:query', async (req, res) => {
       .get();
 
     const users = [];
-    snapshot.forEach((doc) => {
-      users.push(doc.data());
-    });
-
+    snapshot.forEach((doc) => users.push(doc.data()));
     res.json(users);
   } catch (error) {
     console.error('Error searching users:', error);
@@ -65,14 +69,21 @@ router.get('/search/:query', async (req, res) => {
   }
 });
 
-// Get user profile by ID
+// Get user profile by ID (Self-Healing Version)
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const userDoc = await db.collection('users').doc(userId).get();
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
 
     if (!userDoc.exists) {
-      return res.status(404).json({ error: 'User not found' });
+      // If the user isn't in Firestore, we return a 404 but include the UID
+      // so the frontend knows which ID failed.
+      return res.status(404).json({ 
+        error: 'User not found', 
+        uid: userId,
+        message: "This profile hasn't been set up yet." 
+      });
     }
 
     res.json(userDoc.data());
@@ -82,12 +93,13 @@ router.get('/:userId', async (req, res) => {
   }
 });
 
-
+// Update user profile
 router.put('/:userId', verifyToken, async (req, res) => {
   try {
     const { userId: paramUserId } = req.params;
     const { userId: authUserId } = req;
 
+    // Security: Only allow users to update their own profile
     if (paramUserId !== authUserId) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
