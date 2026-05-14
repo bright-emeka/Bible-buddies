@@ -9,7 +9,6 @@ import { fileURLToPath } from 'url';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
-// Import Routes
 import chatRoutes from './routes/chat.js';
 import usersRoutes from './routes/users.js';
 import postsRoutes from './routes/posts.js';
@@ -41,7 +40,7 @@ app.get('/health', (req, res) => {
 });
 
 // --- SERVE FRONTEND ---
-// We check for the build folder relative to the root of the project
+
 const frontendPath = path.join(process.cwd(), 'frontend');
 const distPath = path.join(frontendPath, 'dist'); // Vite default
 const buildPath = path.join(frontendPath, 'build'); // CRA default
