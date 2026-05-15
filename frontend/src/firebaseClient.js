@@ -4,12 +4,12 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 
 const firebaseConfig = {
-  apiKey: "AIzaSyCj7vAwDZKkqlf1e9kLko4ztol6ofxvwOc", // From your screenshot
-  authDomain: "faith-social-ef895.firebaseapp.com",
-  projectId: "faith-social-ef895",
-  storageBucket: "faith-social-ef895.firebasestorage.app",
-  messagingSenderId: "485831767405",
-  appId: "1:485831767405:web:9fa4e7ad111cde6951d664"
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY,
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN,
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID,
+  storageBucket: import.meta.env.VITE_FIREBASE_STORAGE_BUCKET,
+  messagingSenderId: import.meta.env.VITE_FIREBASE_MESSAGING_SENDER_ID,
+  appId: import.meta.env.VITE_FIREBASE_APP_ID
 };
 
 const app = initializeApp(firebaseConfig);
