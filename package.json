@@ -5,7 +5,7 @@
   "description": "Faith Buddies",
   "scripts": {
     "web:install": "npm --prefix backend install && npm --prefix frontend install",
-    "web:dev":"concurrently --kill-others \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "web:dev": "concurrently --kill-others \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
     "web:build": "npm --prefix frontend run build",
     "web:start": "npm --prefix backend start",
     "build": "npm run web:install && npm run web:build"
@@ -13,7 +13,7 @@
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",
     "concurrently": "^8.2.2",
-    "vite": "^8.0.12"
+    "vite": "^8.0.13"
   },
   "dependencies": {
     "cli": "^1.0.1",
