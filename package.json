@@ -5,11 +5,10 @@
   "description": "Faith Buddies",
   "scripts": {
     "web:install": "npm --prefix backend install && npm --prefix frontend install",
-    "web:dev": "concurrently --kill-others \"npm --prefix backend run dev\" \"vite frontend\"",
-    "web:build": "vite build frontend",
-    "web:serve": "npm --prefix frontend run build && npm --prefix backend start",
+    "web:dev":"concurrently --kill-others \"npm --prefix backend run dev\" \"npm --prefix frontend run dev\"",
+    "web:build": "npm --prefix frontend run build",
     "web:start": "npm --prefix backend start",
-    "heroku-postbuild": "npm run web:install && npm run web:build"
+    "build": "npm run web:install && npm run web:build"
   },
   "devDependencies": {
     "@vitejs/plugin-react": "^6.0.1",
