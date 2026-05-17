@@ -29,6 +29,8 @@ const Profile = () => {
   const [postContent, setPostContent] = useState('');
   const [postImage, setPostImage] = useState('');
   const [isPosting, setIsPosting] = useState(false);
+  
+  // These states are now actively used to manage avatar preview and upload states in the UI
   const [avatarImage, setAvatarImage] = useState('');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
@@ -200,14 +202,21 @@ const Profile = () => {
     <div className="profile-container">
       <div className="profile-header">
         <div className="avatar-container">
-          <img 
-            src={user.avatar || 'https://via.placeholder.com/150'} 
-            alt={user.name} 
-            className="profile-avatar" 
-          />
+          {/* Conditional state uses avatarImage and isUploadingAvatar hooks natively */}
+          {isUploadingAvatar ? (
+            <div className="profile-avatar-loader">
+              <span className="spinner"></span>
+              <p>Uploading...</p>
+            </div>
+          ) : (
+            <img 
+              src={avatarImage || user.avatar || 'https://via.placeholder.com/150'} 
+              alt={user.name} 
+              className="profile-avatar" 
+            />
+          )}
           {isOwnProfile && (
             <label className="avatar-upload-label" onClick={() => document.getElementById('avatar-input').click()}>
-              {/* FIXED: The input tag below is now properly self-closed with '/>' */}
               <input
                 type="file"
                 id="avatar-input"
