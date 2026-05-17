@@ -9,28 +9,28 @@ const MOCK_GROUPS = [
     name: 'Faith Buddies Youth Group',
     description: 'A group for young adults to grow in faith together',
     memberCount: 45,
-    image: 'https://via.placeholder.com/100'
+    image: 'https://cf.ltkcdn.net/www/images/std/355721-800x534-young-group-having-fun-together-2210336135.jpg'
   },
   {
     id: 2,
     name: 'Prayer Warriors',
     description: 'Dedicated to intercessory prayer and spiritual warfare',
     memberCount: 23,
-    image: 'https://via.placeholder.com/100'
+    image: 'https://churchanswers.com/wp-content/uploads/2024/09/Group-of-different-people-praying-together.png'
   },
   {
     id: 3,
     name: 'Bible Study Fellowship',
     description: 'Weekly deep dives into Gods word',
     memberCount: 32,
-    image: 'https://via.placeholder.com/100'
+    image: 'https://www.icirnigeria.org/wp-content/uploads/2021/11/Fellowship.jpg'
   },
   {
     id: 4,
     name: 'Worship Team',
     description: 'Musicians and singers leading worship',
     memberCount: 12,
-    image: 'https://via.placeholder.com/100'
+    image: 'https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcTL5l0vk3H6zhwKgQPtpUEnlrxZz6qDGbPr8Q&s'
   }
 ];
 
