@@ -1,47 +1,40 @@
-// User routes - handles profiles, user data, follow relationships
+// User routes - handles profiles, user data, follow relationships using MongoDB
 import express from 'express';
-import { db } from '../config/firebase.js';
+import User from '../models/User.js'; // 🔌 Import your new Mongoose model
 import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
-
-/**
- * HELPER FUNCTION: Create Default Profile
- * Ensures a consistent user object structure
- */
-const createDefaultProfile = async (userRef, userId, data = {}) => {
-  const { name, email, bio, avatar, religion } = data;
-  const newProfile = {
-    uid: userId,
-    name: name || email?.split('@')[0] || 'New Believer',
-    email: email || '',
-    bio: bio || 'Faithful believer sharing wisdom and inspiration',
-    avatar: avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(name || email || 'User')}&background=random`,
-    religion: religion || 'Christian',
-    createdAt: new Date().toISOString(),
-    followersCount: 0,
-    followingCount: 0,
-    postsCount: 0,
-  };
-  await userRef.set(newProfile);
-  return newProfile;
-};
 
 // --- ROUTES ---
 
 // Get or create user profile (Used during Login/Signup)
 router.post('/profile', verifyToken, async (req, res) => {
   try {
-    const { userId } = req;
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
+    const { userId } = req; // Extracted from verifyToken middleware
+    const { name, email, bio, avatar, religion } = req.body;
 
-    if (!userDoc.exists) {
-      const newProfile = await createDefaultProfile(userRef, userId, req.body);
-      return res.json(newProfile);
+    // 🔍 Find the user in MongoDB by their Firebase uid
+    let user = await User.findOne({ uid: userId });
+
+    // 🆕 If the user doesn't exist in MongoDB yet, create a default profile
+    if (!user) {
+      const defaultName = name || email?.split('@')[0] || 'New Believer';
+      const defaultAvatar = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=random`;
+
+      user = new User({
+        uid: userId,
+        name: defaultName,
+        email: email || '',
+        bio: bio || 'Faithful believer sharing wisdom and inspiration',
+        avatar: defaultAvatar,
+        religion: religion || 'Christian'
+      });
+
+      await user.save(); // Saves persistently to MongoDB Atlas!
+      console.log(`✨ Created brand new MongoDB profile for: ${defaultName}`);
     }
 
-    res.json(userDoc.data());
+    res.json(user);
   } catch (error) {
     console.error('Error managing user profile:', error);
     res.status(500).json({ error: 'Failed to manage user profile' });
@@ -52,16 +45,12 @@ router.post('/profile', verifyToken, async (req, res) => {
 router.get('/search/:query', async (req, res) => {
   try {
     const { query } = req.params;
-    const snapshot = await db
-      .collection('users')
-      .orderBy('name')
-      .startAt(query)
-      .endAt(query + '\uf8ff')
-      .limit(20)
-      .get();
 
-    const users = [];
-    snapshot.forEach((doc) => users.push(doc.data()));
+    // 🔎 MongoDB Regular Expression search (case-insensitive search matching name)
+    const users = await User.find({
+      name: { $regex: query, $options: 'i' }
+    }).limit(20);
+
     res.json(users);
   } catch (error) {
     console.error('Error searching users:', error);
@@ -69,16 +58,15 @@ router.get('/search/:query', async (req, res) => {
   }
 });
 
-// Get user profile by ID (Self-Healing Version)
+// Get user profile by ID (Matches your frontend query!)
 router.get('/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const userRef = db.collection('users').doc(userId);
-    const userDoc = await userRef.get();
 
-    if (!userDoc.exists) {
-      // If the user isn't in Firestore, we return a 404 but include the UID
-      // so the frontend knows which ID failed.
+    // 🔍 Look up user via their Firebase uid field
+    const user = await User.findOne({ uid: userId });
+
+    if (!user) {
       return res.status(404).json({ 
         error: 'User not found', 
         uid: userId,
@@ -86,7 +74,7 @@ router.get('/:userId', async (req, res) => {
       });
     }
 
-    res.json(userDoc.data());
+    res.json(user);
   } catch (error) {
     console.error('Error fetching user profile:', error);
     res.status(500).json({ error: 'Failed to fetch user profile' });
@@ -105,18 +93,20 @@ router.put('/:userId', verifyToken, async (req, res) => {
     }
 
     const { name, bio, avatar, religion } = req.body;
-    const userRef = db.collection('users').doc(paramUserId);
 
-    await userRef.update({
-      ...(name && { name }),
-      ...(bio && { bio }),
-      ...(avatar && { avatar }),
-      ...(religion && { religion }),
-      updatedAt: new Date().toISOString(),
-    });
+    // 🔌 Find and update the document directly in MongoDB
+    const updatedUser = await User.findOneAndUpdate(
+      { uid: paramUserId },
+      { 
+        ...(name && { name }),
+        ...(bio && { bio }),
+        ...(avatar && { avatar }),
+        ...(religion && { religion })
+      },
+      { new: true } // This option returns the updated document back to React
+    );
 
-    const updated = await userRef.get();
-    res.json(updated.data());
+    res.json(updatedUser);
   } catch (error) {
     console.error('Error updating user profile:', error);
     res.status(500).json({ error: 'Failed to update user profile' });
