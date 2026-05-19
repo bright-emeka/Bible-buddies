@@ -6,6 +6,7 @@ import dotenv from 'dotenv';
 import path from 'path';
 import fs from 'fs';
 import { fileURLToPath } from 'url';
+import mongoose from 'mongoose'; // 👈 1. IMPORT MONGOOSE
 
 // ES Module path fixes
 const __filename = fileURLToPath(import.meta.url);
@@ -22,6 +23,15 @@ dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 5000;
+
+// 🔌 2. CONNECT TO MONGO_DB ATLAS
+mongoose.connect(process.env.MONGO_URI)
+  .then(() => {
+    console.log('✅ MongoDB connected successfully to Faith Buddies!');
+  })
+  .catch((err) => {
+    console.error('❌ MongoDB connection error:', err.message);
+  });
 
 // Middleware
 app.use(cors({
@@ -86,6 +96,6 @@ app.use((error, req, res, next) => {
 
 // Start server
 app.listen(PORT, () => {
-  console.log(`🚀 Bible Social API active on port ${PORT}`);
+  console.log(`🚀 Faith Buddies API active on port ${PORT}`); // Swapped log name to match your new branding! 😄
   console.log('Environment:', process.env.NODE_ENV || 'development');
 });
