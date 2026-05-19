@@ -1,8 +1,7 @@
 // Posts routes - handles creating, reading, and managing posts
 import express from 'express';
-import { db } from '../config/firebase.js';
 import { verifyToken } from '../middleware/auth.js';
-import admin from 'firebase-admin';
+import { Post, User, Follow, Comment, Like } from '../models/index.js';
 
 const router = express.Router();
 
@@ -16,29 +15,15 @@ router.post('/', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Post content cannot be empty' });
     }
 
-    const postsRef = db.collection('posts');
-    const postDoc = {
+    const post = await Post.create({
       userId,
       content: content.trim(),
       image: image || null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-      likesCount: 0,
-      commentsCount: 0,
-      sharesCount: 0,
-    };
-
-    const docRef = await postsRef.add(postDoc);
-
-    // Update user's posts count using atomic increment
-    await db.collection('users').doc(userId).update({
-      postsCount: admin.firestore.FieldValue.increment(1),
     });
 
-    res.status(201).json({
-      id: docRef.id,
-      ...postDoc,
-    });
+    await User.findByIdAndUpdate(userId, { $inc: { postsCount: 1 } });
+
+    res.status(201).json(post);
   } catch (error) {
     console.error('Error creating post:', error);
     res.status(500).json({ error: 'Failed to create post' });
@@ -49,45 +34,29 @@ router.post('/', verifyToken, async (req, res) => {
 router.get('/feed', verifyToken, async (req, res) => {
   try {
     const { userId } = req;
-    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : new Date();
+    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : undefined;
 
-    // Get users that current user is following
-    const followsSnapshot = await db
-      .collection('follows')
-      .where('followerId', '==', userId)
-      .get();
+    const followDocs = await Follow.find({ followerId: userId }).select('followingId');
+    const followingIds = [userId, ...followDocs.map((doc) => doc.followingId)];
 
-    const followingIds = [userId]; // Include own posts
-    followsSnapshot.forEach((doc) => {
-      followingIds.push(doc.data().followingId);
-    });
+    const query = { userId: { $in: followingIds } };
+    if (lastTimestamp) {
+      query.createdAt = { $lt: lastTimestamp };
+    }
 
-    // Get posts from followed users with proper pagination
-    const postsSnapshot = await db
-      .collection('posts')
-      .where('userId', 'in', followingIds)
-      .orderBy('createdAt', 'desc')
-      .startAt(lastTimestamp)
+    const posts = await Post.find(query)
+      .sort({ createdAt: -1 })
       .limit(20)
-      .get();
+      .lean();
 
-    // Batch fetch all user documents to avoid N+1 query problem
-    const userIds = [...new Set(postsSnapshot.docs.map(doc => doc.data().userId))];
-    const userDocs = await Promise.all(
-      userIds.map(id => db.collection('users').doc(id).get())
-    );
-    const usersMap = new Map(userDocs.map(doc => [doc.id, doc.data()]));
+    const userIds = [...new Set(posts.map((post) => post.userId))];
+    const users = await User.find({ _id: { $in: userIds } }).lean();
+    const usersMap = new Map(users.map((user) => [user._id, user]));
 
-    const posts = postsSnapshot.docs.map((postDoc) => {
-      const post = postDoc.data();
-      return {
-        id: postDoc.id,
-        ...post,
-        author: usersMap.get(post.userId),
-      };
-    });
-
-    res.json(posts);
+    res.json(posts.map((post) => ({
+      ...post,
+      author: usersMap.get(post.userId),
+    })));
   } catch (error) {
     console.error('Error fetching feed:', error);
     res.status(500).json({ error: 'Failed to fetch feed' });
@@ -98,20 +67,17 @@ router.get('/feed', verifyToken, async (req, res) => {
 router.get('/user/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : new Date();
+    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : undefined;
 
-    const postsSnapshot = await db
-      .collection('posts')
-      .where('userId', '==', userId)
-      .orderBy('createdAt', 'desc')
-      .startAt(lastTimestamp)
+    const query = { userId };
+    if (lastTimestamp) {
+      query.createdAt = { $lt: lastTimestamp };
+    }
+
+    const posts = await Post.find(query)
+      .sort({ createdAt: -1 })
       .limit(20)
-      .get();
-
-    const posts = postsSnapshot.docs.map((postDoc) => ({
-      id: postDoc.id,
-      ...postDoc.data(),
-    }));
+      .lean();
 
     res.json(posts);
   } catch (error) {
@@ -124,44 +90,28 @@ router.get('/user/:userId', async (req, res) => {
 router.get('/:postId', async (req, res) => {
   try {
     const { postId } = req.params;
-    const postDoc = await db.collection('posts').doc(postId).get();
+    const post = await Post.findById(postId).lean();
 
-    if (!postDoc.exists) {
+    if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    const post = postDoc.data();
-    const userDoc = await db.collection('users').doc(post.userId).get();
+    const author = await User.findById(post.userId).lean();
+    const comments = await Comment.find({ postId: post._id })
+      .sort({ createdAt: -1 })
+      .lean();
 
-    // Get comments
-    const commentsSnapshot = await db
-      .collection('posts')
-      .doc(postId)
-      .collection('comments')
-      .orderBy('createdAt', 'desc')
-      .get();
-
-    // Batch fetch all comment author documents
-    const commentUserIds = [...new Set(commentsSnapshot.docs.map(doc => doc.data().userId))];
-    const commentUserDocs = await Promise.all(
-      commentUserIds.map(id => db.collection('users').doc(id).get())
-    );
-    const commentUsersMap = new Map(commentUserDocs.map(doc => [doc.id, doc.data()]));
-
-    const comments = commentsSnapshot.docs.map((commentDoc) => {
-      const comment = commentDoc.data();
-      return {
-        id: commentDoc.id,
-        ...comment,
-        author: commentUsersMap.get(comment.userId),
-      };
-    });
+    const commentUserIds = [...new Set(comments.map((comment) => comment.userId))];
+    const commentUsers = await User.find({ _id: { $in: commentUserIds } }).lean();
+    const commentUsersMap = new Map(commentUsers.map((user) => [user._id, user]));
 
     res.json({
-      id: postId,
       ...post,
-      author: userDoc.data(),
-      comments,
+      author,
+      comments: comments.map((comment) => ({
+        ...comment,
+        author: commentUsersMap.get(comment.userId),
+      })),
     });
   } catch (error) {
     console.error('Error fetching post:', error);
@@ -175,16 +125,20 @@ router.delete('/:postId', verifyToken, async (req, res) => {
     const { postId } = req.params;
     const { userId } = req;
 
-    const postDoc = await db.collection('posts').doc(postId).get();
-    if (!postDoc.exists) {
+    const post = await Post.findById(postId);
+    if (!post) {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    if (postDoc.data().userId !== userId) {
+    if (post.userId !== userId) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    await db.collection('posts').doc(postId).delete();
+    await Promise.all([
+      Post.findByIdAndDelete(postId),
+      Comment.deleteMany({ postId: post._id }),
+      Like.deleteMany({ postId: post._id }),
+    ]);
 
     res.json({ message: 'Post deleted' });
   } catch (error) {

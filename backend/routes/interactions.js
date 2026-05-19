@@ -1,8 +1,7 @@
 // Interactions routes - handles likes and comments
 import express from 'express';
-import { db } from '../config/firebase.js';
 import { verifyToken } from '../middleware/auth.js';
-import admin from 'firebase-admin';
+import { Like, Comment, Post, User } from '../models/index.js';
 
 const router = express.Router();
 
@@ -12,38 +11,18 @@ router.post('/:postId/like', verifyToken, async (req, res) => {
     const { postId } = req.params;
     const { userId } = req;
 
-    const likesRef = db.collection('likes');
-    const likeQuery = await likesRef
-      .where('postId', '==', postId)
-      .where('userId', '==', userId)
-      .get();
+    const existingLike = await Like.findOne({ postId, userId });
 
-    if (!likeQuery.empty) {
-      // Already liked, so unlike
-      const likeDoc = likeQuery.docs[0];
-      await likeDoc.ref.delete();
-
-      // Decrease likes count using atomic decrement
-      await db.collection('posts').doc(postId).update({
-        likesCount: admin.firestore.FieldValue.increment(-1),
-      });
-
-      res.json({ liked: false, message: 'Post unliked' });
-    } else {
-      // Like the post
-      await likesRef.add({
-        postId,
-        userId,
-        createdAt: new Date().toISOString(),
-      });
-
-      // Increase likes count using atomic increment
-      await db.collection('posts').doc(postId).update({
-        likesCount: admin.firestore.FieldValue.increment(1),
-      });
-
-      res.json({ liked: true, message: 'Post liked' });
+    if (existingLike) {
+      await existingLike.deleteOne();
+      await Post.findByIdAndUpdate(postId, { $inc: { likesCount: -1 } });
+      return res.json({ liked: false, message: 'Post unliked' });
     }
+
+    await Like.create({ postId, userId });
+    await Post.findByIdAndUpdate(postId, { $inc: { likesCount: 1 } });
+
+    res.json({ liked: true, message: 'Post liked' });
   } catch (error) {
     console.error('Error toggling like:', error);
     res.status(500).json({ error: 'Failed to toggle like' });
@@ -56,13 +35,8 @@ router.get('/:postId/liked', verifyToken, async (req, res) => {
     const { postId } = req.params;
     const { userId } = req;
 
-    const likeQuery = await db
-      .collection('likes')
-      .where('postId', '==', postId)
-      .where('userId', '==', userId)
-      .get();
-
-    res.json({ liked: !likeQuery.empty });
+    const liked = await Like.exists({ postId, userId });
+    res.json({ liked: Boolean(liked) });
   } catch (error) {
     console.error('Error checking if liked:', error);
     res.status(500).json({ error: 'Failed to check like status' });
@@ -80,31 +54,18 @@ router.post('/:postId/comments', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Comment cannot be empty' });
     }
 
-    const commentDoc = {
+    const comment = await Comment.create({
+      postId,
       userId,
       content: content.trim(),
-      createdAt: new Date().toISOString(),
-      likesCount: 0,
-    };
-
-    const docRef = await db
-      .collection('posts')
-      .doc(postId)
-      .collection('comments')
-      .add(commentDoc);
-
-    // Update post comments count using atomic increment
-    await db.collection('posts').doc(postId).update({
-      commentsCount: admin.firestore.FieldValue.increment(1),
     });
 
-    // Get comment author info
-    const userDoc = await db.collection('users').doc(userId).get();
+    await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
+    const userDoc = await User.findById(userId).lean();
 
     res.status(201).json({
-      id: docRef.id,
-      ...commentDoc,
-      author: userDoc.data(),
+      ...comment.toObject(),
+      author: userDoc,
     });
   } catch (error) {
     console.error('Error adding comment:', error);
@@ -116,34 +77,26 @@ router.post('/:postId/comments', verifyToken, async (req, res) => {
 router.get('/:postId/comments', async (req, res) => {
   try {
     const { postId } = req.params;
-    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : new Date();
+    const lastTimestamp = req.query.lastTimestamp ? new Date(req.query.lastTimestamp) : undefined;
 
-    const commentsSnapshot = await db
-      .collection('posts')
-      .doc(postId)
-      .collection('comments')
-      .orderBy('createdAt', 'desc')
-      .startAt(lastTimestamp)
+    const query = { postId };
+    if (lastTimestamp) {
+      query.createdAt = { $lt: lastTimestamp };
+    }
+
+    const comments = await Comment.find(query)
+      .sort({ createdAt: -1 })
       .limit(20)
-      .get();
+      .lean();
 
-    // Batch fetch all comment author documents
-    const commentUserIds = [...new Set(commentsSnapshot.docs.map(doc => doc.data().userId))];
-    const commentUserDocs = await Promise.all(
-      commentUserIds.map(id => db.collection('users').doc(id).get())
-    );
-    const commentUsersMap = new Map(commentUserDocs.map(doc => [doc.id, doc.data()]));
+    const commentUserIds = [...new Set(comments.map((comment) => comment.userId))];
+    const commentUsers = await User.find({ _id: { $in: commentUserIds } }).lean();
+    const commentUsersMap = new Map(commentUsers.map((user) => [user._id, user]));
 
-    const comments = commentsSnapshot.docs.map((commentDoc) => {
-      const comment = commentDoc.data();
-      return {
-        id: commentDoc.id,
-        ...comment,
-        author: commentUsersMap.get(comment.userId),
-      };
-    });
-
-    res.json(comments);
+    res.json(comments.map((comment) => ({
+      ...comment,
+      author: commentUsersMap.get(comment.userId),
+    })));
   } catch (error) {
     console.error('Error fetching comments:', error);
     res.status(500).json({ error: 'Failed to fetch comments' });
@@ -153,30 +106,20 @@ router.get('/:postId/comments', async (req, res) => {
 // Delete comment
 router.delete('/:postId/comments/:commentId', verifyToken, async (req, res) => {
   try {
-    const { postId, commentId } = req.params;
+    const { commentId } = req.params;
     const { userId } = req;
 
-    const commentDoc = await db
-      .collection('posts')
-      .doc(postId)
-      .collection('comments')
-      .doc(commentId)
-      .get();
-
-    if (!commentDoc.exists) {
+    const comment = await Comment.findById(commentId);
+    if (!comment) {
       return res.status(404).json({ error: 'Comment not found' });
     }
 
-    if (commentDoc.data().userId !== userId) {
+    if (comment.userId !== userId) {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    await commentDoc.ref.delete();
-
-    // Update post comments count using atomic decrement
-    await db.collection('posts').doc(postId).update({
-      commentsCount: admin.firestore.FieldValue.increment(-1),
-    });
+    await comment.deleteOne();
+    await Post.findByIdAndUpdate(comment.postId, { $inc: { commentsCount: -1 } });
 
     res.json({ message: 'Comment deleted' });
   } catch (error) {

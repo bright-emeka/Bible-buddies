@@ -1,15 +1,13 @@
 // Follows routes - handles user following relationships
 import express from 'express';
-import { db } from '../config/firebase.js';
 import { verifyToken } from '../middleware/auth.js';
-import admin from 'firebase-admin';
+import { User, Follow } from '../models/index.js';
 
 const router = express.Router();
 
 // Helper function to check if user exists
 const userExists = async (userId) => {
-  const userDoc = await db.collection('users').doc(userId).get();
-  return userDoc.exists;
+  return User.exists({ _id: userId });
 };
 
 // Follow a user
@@ -22,60 +20,40 @@ router.post('/:targetUserId/follow', verifyToken, async (req, res) => {
       return res.status(400).json({ error: 'Cannot follow yourself' });
     }
 
-    // Check if both users exist
     const [followerExists, targetExists] = await Promise.all([
       userExists(followerId),
-      userExists(targetUserId)
+      userExists(targetUserId),
     ]);
 
     if (!followerExists || !targetExists) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    // Check if already following (query outside transaction)
-    const existingFollowQuery = await db
-      .collection('follows')
-      .where('followerId', '==', followerId)
-      .where('followingId', '==', targetUserId)
-      .get();
-
-    const alreadyFollowing = !existingFollowQuery.empty;
-    const existingFollowRef = alreadyFollowing ? existingFollowQuery.docs[0].ref : null;
-
-    // Use transaction only for atomic updates
-    const result = await db.runTransaction(async (transaction) => {
-      const followerRef = db.collection('users').doc(followerId);
-      const targetRef = db.collection('users').doc(targetUserId);
-
-      if (alreadyFollowing) {
-        // Unfollow
-        transaction.delete(existingFollowRef);
-        transaction.update(followerRef, {
-          followingCount: admin.firestore.FieldValue.increment(-1),
-        });
-        transaction.update(targetRef, {
-          followersCount: admin.firestore.FieldValue.increment(-1),
-        });
-        return { following: false, message: 'User unfollowed' };
-      } else {
-        // Follow
-        const newFollowRef = db.collection('follows').doc();
-        transaction.set(newFollowRef, {
-          followerId,
-          followingId: targetUserId,
-          createdAt: new Date().toISOString(),
-        });
-        transaction.update(followerRef, {
-          followingCount: admin.firestore.FieldValue.increment(1),
-        });
-        transaction.update(targetRef, {
-          followersCount: admin.firestore.FieldValue.increment(1),
-        });
-        return { following: true, message: 'User followed' };
-      }
+    const existingFollow = await Follow.findOne({
+      followerId,
+      followingId: targetUserId,
     });
 
-    res.json(result);
+    if (existingFollow) {
+      await existingFollow.deleteOne();
+      await Promise.all([
+        User.findByIdAndUpdate(followerId, { $inc: { followingCount: -1 } }),
+        User.findByIdAndUpdate(targetUserId, { $inc: { followersCount: -1 } }),
+      ]);
+      return res.json({ following: false, message: 'User unfollowed' });
+    }
+
+    await Follow.create({
+      followerId,
+      followingId: targetUserId,
+    });
+
+    await Promise.all([
+      User.findByIdAndUpdate(followerId, { $inc: { followingCount: 1 } }),
+      User.findByIdAndUpdate(targetUserId, { $inc: { followersCount: 1 } }),
+    ]);
+
+    res.json({ following: true, message: 'User followed' });
   } catch (error) {
     console.error('Error toggling follow:', error);
     res.status(500).json({ error: 'Failed to toggle follow' });
@@ -83,28 +61,22 @@ router.post('/:targetUserId/follow', verifyToken, async (req, res) => {
 });
 
 // Check if following
-router.get('/:targetUserId/following', verifyToken, async (req, res) => {
+router.get('/status/:targetUserId/following', verifyToken, async (req, res) => {
   try {
     const { targetUserId } = req.params;
     const { userId } = req;
 
-    // Check if both users exist
     const [currentUserExists, targetExists] = await Promise.all([
       userExists(userId),
-      userExists(targetUserId)
+      userExists(targetUserId),
     ]);
 
     if (!currentUserExists || !targetExists) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const followQuery = await db
-      .collection('follows')
-      .where('followerId', '==', userId)
-      .where('followingId', '==', targetUserId)
-      .get();
-
-    res.json({ following: !followQuery.empty });
+    const following = await Follow.exists({ followerId: userId, followingId: targetUserId });
+    res.json({ following: Boolean(following) });
   } catch (error) {
     console.error('Error checking follow status:', error);
     res.status(500).json({ error: 'Failed to check follow status' });
@@ -115,29 +87,16 @@ router.get('/:targetUserId/following', verifyToken, async (req, res) => {
 router.get('/:userId/followers', async (req, res) => {
   try {
     const { userId } = req.params;
-    let limit = parseInt(req.query.limit) || 50;
-    limit = Math.min(limit, 100); // Max limit
+    let limit = parseInt(req.query.limit, 10) || 50;
+    limit = Math.min(limit, 100);
 
-    // Check if user exists
     if (!(await userExists(userId))) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const followsSnapshot = await db
-      .collection('follows')
-      .where('followingId', '==', userId)
-      .limit(limit)
-      .get();
-
-    // Batch fetch all follower documents
-    const followerIds = followsSnapshot.docs.map(doc => doc.data().followerId);
-    const followerDocs = await Promise.all(
-      followerIds.map(id => db.collection('users').doc(id).get())
-    );
-
-    const followers = followerDocs
-      .filter(doc => doc.exists)
-      .map(doc => doc.data());
+    const followDocs = await Follow.find({ followingId: userId }).limit(limit).lean();
+    const followerIds = followDocs.map((doc) => doc.followerId);
+    const followers = await User.find({ _id: { $in: followerIds } });
 
     res.json(followers);
   } catch (error) {
@@ -150,29 +109,16 @@ router.get('/:userId/followers', async (req, res) => {
 router.get('/:userId/following', async (req, res) => {
   try {
     const { userId } = req.params;
-    let limit = parseInt(req.query.limit) || 50;
-    limit = Math.min(limit, 100); // Max limit
+    let limit = parseInt(req.query.limit, 10) || 50;
+    limit = Math.min(limit, 100);
 
-    // Check if user exists
     if (!(await userExists(userId))) {
       return res.status(404).json({ error: 'User not found' });
     }
 
-    const followsSnapshot = await db
-      .collection('follows')
-      .where('followerId', '==', userId)
-      .limit(limit)
-      .get();
-
-    // Batch fetch all following user documents
-    const followingIds = followsSnapshot.docs.map(doc => doc.data().followingId);
-    const followingDocs = await Promise.all(
-      followingIds.map(id => db.collection('users').doc(id).get())
-    );
-
-    const following = followingDocs
-      .filter(doc => doc.exists)
-      .map(doc => doc.data());
+    const followDocs = await Follow.find({ followerId: userId }).limit(limit).lean();
+    const followingIds = followDocs.map((doc) => doc.followingId);
+    const following = await User.find({ _id: { $in: followingIds } });
 
     res.json(following);
   } catch (error) {
