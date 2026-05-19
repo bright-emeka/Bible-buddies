@@ -7,33 +7,33 @@ const router = express.Router();
 
 // --- ROUTES ---
 
-// Get or create user profile (Used during Login/Signup)
+// Get or create user profile
 router.post('/profile', verifyToken, async (req, res) => {
   try {
-    const { userId } = req; // Extracted from verifyToken middleware
+    const { userId } = req; // This is the 'glQY...' string from your middleware
     const { name, email, bio, avatar, religion } = req.body;
 
-    // 🔍 Find the user in MongoDB by their Firebase uid
+    console.log("DEBUG: Looking for user with UID:", userId);
+
     let user = await User.findOne({ uid: userId });
 
-   // 🆕 If the user doesn't exist in MongoDB yet, create a default profile
-if (!user) {
-  const defaultName = name || email?.split('@')[0] || 'New Believer';
-  const defaultAvatar = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=random`;
+    if (!user) {
+      const defaultName = name || email?.split('@')[0] || 'New Believer';
+      const defaultAvatar = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=random`;
 
-  user = new User({
-    _id: userId,  
-    uid: userId,  
-    name: defaultName,
-    email: email || '',
-    bio: bio || 'Faithful believer sharing wisdom and inspiration',
-    avatar: defaultAvatar,
-    religion: religion || 'Christian'
-  });
+      user = new User({
+        _id: userId,   
+        uid: userId,   
+        name: defaultName,
+        email: email || '',
+        bio: bio || 'Faithful believer sharing wisdom and inspiration',
+        avatar: defaultAvatar,
+        religion: religion || 'Christian'
+      });
 
-  await user.save();
-  console.log(`✨ Created brand new MongoDB profile for: ${defaultName}`);
-}
+      await user.save();
+      console.log(`✨ Success! Saved profile to Atlas with UID: ${userId}`);
+    }
 
     res.json(user);
   } catch (error) {
