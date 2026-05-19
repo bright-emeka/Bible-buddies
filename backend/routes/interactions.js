@@ -1,4 +1,4 @@
-// Interactions routes - handles likes and comments
+// Interactions routes - handles likes and comments with corrected user lookups
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
 import { Like, Comment, Post, User } from '../models/index.js';
@@ -9,7 +9,7 @@ const router = express.Router();
 router.post('/:postId/like', verifyToken, async (req, res) => {
   try {
     const { postId } = req.params;
-    const { userId } = req;
+    const { userId } = req; // Firebase UID from middleware
 
     const existingLike = await Like.findOne({ postId, userId });
 
@@ -61,7 +61,9 @@ router.post('/:postId/comments', verifyToken, async (req, res) => {
     });
 
     await Post.findByIdAndUpdate(postId, { $inc: { commentsCount: 1 } });
-    const userDoc = await User.findById(userId).lean();
+    
+    // ⚡ FIX: Query by 'uid' field, not findById
+    const userDoc = await User.findOne({ uid: userId }).lean();
 
     res.status(201).json({
       ...comment.toObject(),
@@ -90,8 +92,10 @@ router.get('/:postId/comments', async (req, res) => {
       .lean();
 
     const commentUserIds = [...new Set(comments.map((comment) => comment.userId))];
-    const commentUsers = await User.find({ _id: { $in: commentUserIds } }).lean();
-    const commentUsersMap = new Map(commentUsers.map((user) => [user._id, user]));
+    
+    // ⚡ FIX: Use 'uid' matching array field, not native '_id'
+    const commentUsers = await User.find({ uid: { $in: commentUserIds } }).lean();
+    const commentUsersMap = new Map(commentUsers.map((user) => [user.uid, user]));
 
     res.json(comments.map((comment) => ({
       ...comment,
