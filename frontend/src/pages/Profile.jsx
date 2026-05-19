@@ -8,7 +8,8 @@ import {
   toggleFollow, 
   checkFollowing, 
   updateUserProfile,
-  createPost
+  createPost,
+  logOut
 } from '../services/api';
 import { auth } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
@@ -109,6 +110,15 @@ const Profile = () => {
       }));
     } catch (error) {
       console.error('Error toggling follow:', error);
+    }
+  };
+
+  const handleLogout = async () => {
+    try {
+      await logOut();
+      navigate('/login');
+    } catch (error) {
+      console.error('Error logging out:', error);
     }
   };
 
@@ -419,6 +429,13 @@ const Profile = () => {
           </div>
         )}
       </div>
+
+      {/* Logout button — own profile only */}
+      {isOwnProfile && (
+        <div className="profile-footer">
+          <button className="logout-btn" onClick={handleLogout}>Logout</button>
+        </div>
+      )}
     </div>
   );
 };
