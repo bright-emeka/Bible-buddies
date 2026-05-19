@@ -284,7 +284,7 @@ export const toggleFollow = async (targetUserId) => {
 export const checkFollowing = async (targetUserId) => {
   try {
     const response = await retryWithBackoff(() =>
-      api.get(`/api/follows/${targetUserId}/following`)
+      api.get(`/api/follows/status/${targetUserId}/following`)
     );
     return response.data;
   } catch (error) {
