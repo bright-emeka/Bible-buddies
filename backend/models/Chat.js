@@ -1,23 +1,15 @@
 import mongoose from 'mongoose';
 
 const messageSchema = new mongoose.Schema({
-  role: { type: String, enum: ['user', 'assistant'], required: true },
+  role: { type: String, required: true, enum: ['user', 'assistant'] },
   content: { type: String, required: true },
-  timestamp: { type: Date, default: Date.now },
-}, { _id: false });
+  timestamp: { type: String, default: () => new Date().toISOString() }
+}, { _id: false }); // Prevents Mongoose from creating sub-document IDs for every single message item
 
 const chatSchema = new mongoose.Schema({
-  userId: { type: String, ref: 'User', required: true, unique: true },
-  messages: { type: [messageSchema], default: [] },
-  updatedAt: { type: Date, default: Date.now },
-}, {
-  collection: 'chats',
-});
+  userId: { type: String, required: true, unique: true }, // Stores the user's Firebase UID string
+  messages: [messageSchema],
+}, { timestamps: true });
 
-chatSchema.pre('save', function (next) {
-  this.updatedAt = new Date();
-  next();
-});
-
-const Chat = mongoose.models.Chat || mongoose.model('Chat', chatSchema);
+const Chat = mongoose.model('Chat', chatSchema);
 export default Chat;
