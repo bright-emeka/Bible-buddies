@@ -1,4 +1,4 @@
-// Posts routes - handles creating, reading, and managing posts
+// Posts routes - handles creating, reading, and managing posts with corrected Firebase UIDs
 import express from 'express';
 import { verifyToken } from '../middleware/auth.js';
 import { Post, User, Follow, Comment, Like } from '../models/index.js';
@@ -8,7 +8,7 @@ const router = express.Router();
 // Create a new post
 router.post('/', verifyToken, async (req, res) => {
   try {
-    const { userId } = req;
+    const { userId } = req; // Firebase UID from auth middleware
     const { content, image } = req.body;
 
     if (!content || !content.trim()) {
@@ -16,12 +16,13 @@ router.post('/', verifyToken, async (req, res) => {
     }
 
     const post = await Post.create({
-      userId,
+      userId, // Storing Firebase UID as the owner identifier
       content: content.trim(),
       image: image || null,
     });
 
-    await User.findByIdAndUpdate(userId, { $inc: { postsCount: 1 } });
+    // ⚡ FIX: Use findOneAndUpdate matching 'uid', not findById
+    await User.findOneAndUpdate({ uid: userId }, { $inc: { postsCount: 1 } });
 
     res.status(201).json(post);
   } catch (error) {
@@ -50,8 +51,10 @@ router.get('/feed', verifyToken, async (req, res) => {
       .lean();
 
     const userIds = [...new Set(posts.map((post) => post.userId))];
-    const users = await User.find({ _id: { $in: userIds } }).lean();
-    const usersMap = new Map(users.map((user) => [user._id, user]));
+    
+    // ⚡ FIX: Look up users by matching their 'uid' array, not native '_id'
+    const users = await User.find({ uid: { $in: userIds } }).lean();
+    const usersMap = new Map(users.map((user) => [user.uid, user]));
 
     res.json(posts.map((post) => ({
       ...post,
@@ -96,14 +99,18 @@ router.get('/:postId', async (req, res) => {
       return res.status(404).json({ error: 'Post not found' });
     }
 
-    const author = await User.findById(post.userId).lean();
+    // ⚡ FIX: Find the author user doc matching 'uid'
+    const author = await User.findOne({ uid: post.userId }).lean();
+    
     const comments = await Comment.find({ postId: post._id })
       .sort({ createdAt: -1 })
       .lean();
 
     const commentUserIds = [...new Set(comments.map((comment) => comment.userId))];
-    const commentUsers = await User.find({ _id: { $in: commentUserIds } }).lean();
-    const commentUsersMap = new Map(commentUsers.map((user) => [user._id, user]));
+    
+    // ⚡ FIX: Find comment authors by 'uid'
+    const commentUsers = await User.find({ uid: { $in: commentUserIds } }).lean();
+    const commentUsersMap = new Map(commentUsers.map((user) => [user.uid, user]));
 
     res.json({
       ...post,
