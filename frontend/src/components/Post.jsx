@@ -3,7 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { toggleLike, checkLiked, toggleFollow, checkFollowing } from '../services/api';
 import { auth } from '../services/firebase';
 
-const Post = ({ post, onDelete }) => {
+const Post = ({ post, onDelete, onUserClick }) => {
   const [liked, setLiked] = useState(false);
   const [following, setFollowing] = useState(false);
   const [showComments, setShowComments] = useState(false);
@@ -49,7 +49,7 @@ const Post = ({ post, onDelete }) => {
   return (
     <div className="post-card">
       <div className="post-header">
-        <div className="post-author-info">
+        <div className="post-author-info" onClick={() => onUserClick?.(post.userId)} style={{ cursor: 'pointer' }}>
           <img src={post.author?.avatar} alt="avatar" className="post-avatar" />
           <div>
             <h4>{post.author?.name || 'User'}</h4>

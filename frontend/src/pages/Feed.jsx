@@ -34,6 +34,10 @@ const Feed = () => {
     }
   };
 
+  const handleUserClick = (userId) => {
+    window.location.href = `/profile/${userId}`;
+  };
+
   if (loading) {
     return <div className="loading">Loading feed...</div>;
   }
@@ -53,7 +57,7 @@ const Feed = () => {
             <p>No posts yet. Follow users to see their posts!</p>
           </div>
         ) : (
-          posts.map((post) => <Post key={post.id} post={post} onDelete={handleDeletePost} />)
+          posts.map((post) => <Post key={post.id} post={post} onDelete={handleDeletePost} onUserClick={handleUserClick} />)
         )}
       </div>
     </div>

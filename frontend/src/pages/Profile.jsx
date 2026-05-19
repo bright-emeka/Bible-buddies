@@ -12,10 +12,12 @@ import {
 } from '../services/api';
 import { auth } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
+import { useNavigate } from 'react-router-dom';
 import Post from '../components/Post';
 
 const Profile = () => {
   const { userId } = useParams();
+  const navigate = useNavigate();
   const [user, setUser] = useState(null);
   const [posts, setPosts] = useState([]);
   const [followers, setFollowers] = useState([]);
@@ -398,7 +400,7 @@ const Profile = () => {
         {activeTab === 'followers' && (
           <div className="users-grid">
             {followers.length === 0 ? <p>No followers yet</p> : followers.map((f) => (
-              <div key={f.uid} className="user-list-item">
+              <div key={f.uid} className="user-list-item" onClick={() => navigate(`/profile/${f.uid}`)} style={{ cursor: 'pointer' }}>
                 <img src={f.avatar || 'https://via.placeholder.com/50'} alt="" />
                 <h4>{f.name}</h4>
               </div>
@@ -409,7 +411,7 @@ const Profile = () => {
         {activeTab === 'following' && (
           <div className="users-grid">
             {following.length === 0 ? <p>Not following anyone yet</p> : following.map((f) => (
-              <div key={f.uid} className="user-list-item">
+              <div key={f.uid} className="user-list-item" onClick={() => navigate(`/profile/${f.uid}`)} style={{ cursor: 'pointer' }}>
                 <img src={f.avatar || 'https://via.placeholder.com/50'} alt="" />
                 <h4>{f.name}</h4>
               </div>

@@ -103,7 +103,7 @@ const MOCK_POSTS = [
   }
 ];
 
-const Search = () => {
+const Search = ({ onUserClick }) => {
   const [query, setQuery] = useState('');
   const [debouncedQuery, setDebouncedQuery] = useState('');
 
@@ -166,7 +166,7 @@ const Search = () => {
                     <h2>Users ({filteredUsers.length})</h2>
                     <div className="results-list">
                       {filteredUsers.map(user => (
-                        <div key={user.id} className="user-result-item">
+                        <div key={user.id} className="user-result-item" onClick={() => onUserClick?.(user.id)} style={{ cursor: 'pointer' }}>
                           <img src={user.avatar} alt={`${user.name}'s avatar`} className="result-avatar" />
                           <div className="result-info">
                             <h3>{user.name}</h3>

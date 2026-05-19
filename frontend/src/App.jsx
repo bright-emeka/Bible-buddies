@@ -76,7 +76,7 @@ function AppContent() {
                 <Route path="/feed" element={<Feed />} />
                 <Route path="/chat" element={<ChatHub userEmail={user.email} />} />
                 <Route path="/notifications" element={<Notifications />} />
-                <Route path="/search" element={<Search />} />
+                <Route path="/search" element={<Search onUserClick={handleUserClick} />} />
                 <Route path="/groups" element={<Groups />} />
                 <Route path="/profile/:userId" element={<Profile />} />
                 <Route path="/discover" element={<Discover onUserClick={handleUserClick} />} />
