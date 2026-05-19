@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { 
   getUserProfile, 
+  createUserProfile, // 🆕 Added to dynamically initialize profiles on 404
   getUserPosts, 
   getFollowers, 
   getFollowing, 
@@ -13,7 +14,6 @@ import {
 import { logOut } from '../services/auth';
 import { auth } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
-import { useNavigate } from 'react-router-dom';
 import Post from '../components/Post';
 
 const Profile = () => {
@@ -33,11 +33,9 @@ const Profile = () => {
   const [postImage, setPostImage] = useState('');
   const [isPosting, setIsPosting] = useState(false);
   
-  // These states are now actively used to manage avatar preview and upload states in the UI
   const [avatarImage, setAvatarImage] = useState('');
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   
-  // Track authenticated user state properly
   const [currentUser, setCurrentUser] = useState(auth.currentUser);
 
   useEffect(() => {
@@ -49,7 +47,6 @@ const Profile = () => {
 
   const isOwnProfile = currentUser && currentUser.uid === userId;
 
-  // Wrapped in useCallback to prevent unnecessary re-renders
   const loadProfile = useCallback(async () => {
     if (!userId || userId === 'undefined') {
       console.error("Profile Error: userId is undefined. Check your Link tags or Routes.");
@@ -60,22 +57,15 @@ const Profile = () => {
     try {
       setLoading(true);
       
-      // 1. Fetch User Data First
+      // 1. Try fetching existing MongoDB user profile data
       const userData = await getUserProfile(userId);
-      
-      if (!userData) {
-        console.error(`Profile Error: No document found in Firestore for UID: ${userId}`);
-        setUser(null);
-        return;
-      }
-
       setUser(userData);
 
-      // 2. Run other fetches in parallel to speed up loading
+      // 2. Run other fetches in parallel if the user profile exists
       const [userPosts, followersList, followingList] = await Promise.all([
-        getUserPosts(userId),
-        getFollowers(userId),
-        getFollowing(userId)
+        getUserPosts(userId).catch(() => []), // Catch failures gracefully
+        getFollowers(userId).catch(() => []),
+        getFollowing(userId).catch(() => [])
       ]);
 
       setPosts(userPosts || []);
@@ -84,12 +74,34 @@ const Profile = () => {
 
       // 3. Check follow status if it's someone else's profile
       if (currentUser && currentUser.uid !== userId) {
-        const result = await checkFollowing(userId);
+        const result = await checkFollowing(userId).catch(() => null);
         setIsFollowing(result?.following || false);
       }
       
     } catch (error) {
-      console.error('Error loading profile data:', error);
+      console.warn('Profile not found or loaded with errors. Checking fallback initialization...', error.message);
+      
+      // 🌟 FALLBACK: If profile lookup fails (404), check if it's the current user's profile
+      if (currentUser && currentUser.uid === userId) {
+        console.log("Initializing brand new MongoDB sync profile document...");
+        try {
+          const fallbackProfile = await createUserProfile(userId, {
+            name: currentUser.displayName || currentUser.email?.split('@')[0] || 'New Believer',
+            email: currentUser.email,
+            avatar: currentUser.photoURL || '',
+            bio: 'Faithful believer sharing wisdom and inspiration',
+            religion: 'Christian'
+          });
+          
+          setUser(fallbackProfile);
+        } catch (creationError) {
+          console.error('Fatal: Failed to auto-initialize profile document:', creationError);
+          setUser(null);
+        }
+      } else {
+        // If it's a 404 for another user, reset state cleanly to trigger "User not found"
+        setUser(null);
+      }
     } finally {
       setLoading(false);
     }
@@ -176,11 +188,9 @@ const Profile = () => {
         const avatarUrl = URL.createObjectURL(e.target.files[0]);
         setAvatarImage(avatarUrl);
         
-        // Update the user's avatar in the database
         await updateUserProfile(userId, { avatar: avatarUrl });
         setUser(prev => ({ ...prev, avatar: avatarUrl }));
         
-        // Clear the file input
         e.target.value = '';
       } catch (error) {
         console.error('Error updating avatar:', error);
@@ -205,7 +215,7 @@ const Profile = () => {
       <div className="error-container">
         <h2>User not found</h2>
         <p>We couldn't find a user with the ID: <strong>{userId}</strong></p>
-        <button onClick={() => window.history.back()}>Go Back</button>
+        <button onClick={() => navigate('/')}>Go Home</button>
       </div>
     );
   }
@@ -214,7 +224,6 @@ const Profile = () => {
     <div className="profile-container">
       <div className="profile-header">
         <div className="avatar-container">
-          {/* Conditional state uses avatarImage and isUploadingAvatar hooks natively */}
           {isUploadingAvatar ? (
             <div className="profile-avatar-loader">
               <span className="spinner"></span>
@@ -354,11 +363,10 @@ const Profile = () => {
                   </button>
                 )}
               </div>
-            ) : posts.map((post) => <Post key={post.id} post={post} />)}
+            ) : posts.map((post) => <Post key={post.id || post._id} post={post} />)}
           </div>
         )}
         
-        {/* Create Post Modal */}
         {createPostModal && (
           <div className="modal-backdrop" onClick={() => setCreatePostModal(false)}>
             <div className="modal-content" onClick={(e) => e.stopPropagation()}>
@@ -410,7 +418,7 @@ const Profile = () => {
         {activeTab === 'followers' && (
           <div className="users-grid">
             {followers.length === 0 ? <p>No followers yet</p> : followers.map((f) => (
-              <div key={f.uid} className="user-list-item" onClick={() => navigate(`/profile/${f.uid}`)} style={{ cursor: 'pointer' }}>
+              <div key={f.uid || f._id} className="user-list-item" onClick={() => navigate(`/profile/${f.uid || f._id}`)} style={{ cursor: 'pointer' }}>
                 <img src={f.avatar || 'https://via.placeholder.com/50'} alt="" />
                 <h4>{f.name}</h4>
               </div>
@@ -421,7 +429,7 @@ const Profile = () => {
         {activeTab === 'following' && (
           <div className="users-grid">
             {following.length === 0 ? <p>Not following anyone yet</p> : following.map((f) => (
-              <div key={f.uid} className="user-list-item" onClick={() => navigate(`/profile/${f.uid}`)} style={{ cursor: 'pointer' }}>
+              <div key={f.uid || f._id} className="user-list-item" onClick={() => navigate(`/profile/${f.uid || f._id}`)} style={{ cursor: 'pointer' }}>
                 <img src={f.avatar || 'https://via.placeholder.com/50'} alt="" />
                 <h4>{f.name}</h4>
               </div>
@@ -430,7 +438,6 @@ const Profile = () => {
         )}
       </div>
 
-      {/* Logout button — own profile only */}
       {isOwnProfile && (
         <div className="profile-footer">
           <button className="logout-btn" onClick={handleLogout}>Logout</button>
