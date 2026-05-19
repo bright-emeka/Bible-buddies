@@ -1,6 +1,6 @@
 // User routes - handles profiles, user data, follow relationships using MongoDB
 import express from 'express';
-import User from '../models/User.js'; // 🔌 Import your new Mongoose model
+import { User } from '../models/index.js'; // 🔌 Import your new Mongoose model
 import { verifyToken } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -16,23 +16,24 @@ router.post('/profile', verifyToken, async (req, res) => {
     // 🔍 Find the user in MongoDB by their Firebase uid
     let user = await User.findOne({ uid: userId });
 
-    // 🆕 If the user doesn't exist in MongoDB yet, create a default profile
-    if (!user) {
-      const defaultName = name || email?.split('@')[0] || 'New Believer';
-      const defaultAvatar = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=random`;
+   // 🆕 If the user doesn't exist in MongoDB yet, create a default profile
+if (!user) {
+  const defaultName = name || email?.split('@')[0] || 'New Believer';
+  const defaultAvatar = avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(defaultName)}&background=random`;
 
-      user = new User({
-        uid: userId,
-        name: defaultName,
-        email: email || '',
-        bio: bio || 'Faithful believer sharing wisdom and inspiration',
-        avatar: defaultAvatar,
-        religion: religion || 'Christian'
-      });
+  user = new User({
+    _id: userId,  
+    uid: userId,  
+    name: defaultName,
+    email: email || '',
+    bio: bio || 'Faithful believer sharing wisdom and inspiration',
+    avatar: defaultAvatar,
+    religion: religion || 'Christian'
+  });
 
-      await user.save(); // Saves persistently to MongoDB Atlas!
-      console.log(`✨ Created brand new MongoDB profile for: ${defaultName}`);
-    }
+  await user.save();
+  console.log(`✨ Created brand new MongoDB profile for: ${defaultName}`);
+}
 
     res.json(user);
   } catch (error) {
