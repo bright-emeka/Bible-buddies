@@ -6,10 +6,11 @@ import { Post, User, Follow, Comment, Like } from '../models/index.js';
 const router = express.Router();
 
 // Create a new post
-router.post('/', verifyToken, async (req, res) => {
+router.post('/profile', verifyToken, async (req, res) => {
   try {
-    const { userId } = req; // Firebase UID from auth middleware
-    const { content, image } = req.body;
+    const { userId } = req; // Extracted from verifyToken middleware
+    console.log('DEBUG: Incoming profile request for Firebase UID:', userId); // 👈 ADD THIS LOG
+    const { name, email, bio, avatar, religion } = req.body;
 
     if (!content || !content.trim()) {
       return res.status(400).json({ error: 'Post content cannot be empty' });

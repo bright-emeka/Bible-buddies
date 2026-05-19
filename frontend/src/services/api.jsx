@@ -1,5 +1,6 @@
 // API service for backend communication
 import axios from 'axios';
+import { getAuth } from 'firebase/auth';
 
 // Create axios instance pointing to backend
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5000';
@@ -8,6 +9,28 @@ const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000, // 30 second timeout to prevent hanging requests
 });
+
+// 🔒 GLOBAL REQUEST INTERCEPTOR: Automatically attaches Firebase Token dynamically
+api.interceptors.request.use(
+  async (config) => {
+    try {
+      const auth = getAuth();
+      const user = auth.currentUser;
+      
+      if (user) {
+        // Automatically fetches the token (and auto-refreshes it if it expired)
+        const token = await user.getIdToken();
+        config.headers['Authorization'] = `Bearer ${token}`;
+      }
+    } catch (authError) {
+      console.warn('Could not attach Firebase Auth token to request:', authError);
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
+  }
+);
 
 // Retry logic for failed requests
 const retryWithBackoff = async (fn, maxRetries = 3) => {
@@ -26,7 +49,7 @@ const retryWithBackoff = async (fn, maxRetries = 3) => {
   }
 };
 
-// Add auth token to requests
+// Legacy support (keeps code intact if called elsewhere, but no longer strictly required)
 export const setAuthToken = (token) => {
   if (token) {
     api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
