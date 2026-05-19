@@ -1,8 +1,9 @@
-// Chat routes - handles message sending and history
+// Chat routes - handles message sending and history using MongoDB/Mongoose
 import express from 'express';
 import axios from 'axios';
-import { db } from '../config/firebase.js';
 import { verifyToken } from '../middleware/auth.js';
+import Chat from '../models/Chat.js'; // 🔌 Import Chat model
+import User from '../models/User.js'; // 🔌 Import User model to fetch religion configuration
 
 const router = express.Router();
 
@@ -109,7 +110,7 @@ Remember: Your foundation is universal spiritual wisdom. Always encourage sincer
   return prompts[religion] || prompts['Other'];
 };
 
-// Send message to Gemini and save to Firestore
+// Send message to Gemini and save to MongoDB
 router.post('/message', verifyToken, async (req, res) => {
   try {
     const { message, userId } = req.body;
@@ -122,10 +123,9 @@ router.post('/message', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    // Get user's chat history from Firestore
-    const chatDocRef = db.collection('chats').doc(userId);
-    const chatDoc = await chatDocRef.get();
-    let chatMessages = chatDoc.exists ? chatDoc.data().messages || [] : [];
+    // ⚡ FIX: Get user's chat document from MongoDB using Mongoose
+    let chatDoc = await Chat.findOne({ userId });
+    let chatMessages = chatDoc ? chatDoc.messages || [] : [];
 
     // Limit chat history to last 20 messages to prevent unbounded growth and token limits
     const MAX_MESSAGES = 20;
@@ -133,9 +133,9 @@ router.post('/message', verifyToken, async (req, res) => {
       chatMessages = chatMessages.slice(-MAX_MESSAGES);
     }
 
-    // Get user's religion from profile
-    const userDoc = await db.collection('users').doc(userId).get();
-    const userReligion = userDoc.exists ? userDoc.data().religion || 'Christian' : 'Christian';
+    // ⚡ FIX: Find the user profile doc matching the 'uid' field to extract religion
+    const userDoc = await User.findOne({ uid: userId }).lean();
+    const userReligion = userDoc ? userDoc.religion || 'Christian' : 'Christian';
 
     // Build conversation history for Gemini API
     const conversationHistory = chatMessages.map((msg) => ({
@@ -187,10 +187,10 @@ router.post('/message', verifyToken, async (req, res) => {
     console.log('✅ Received response from Gemini');
     const aiMessage = response.data.candidates[0].content.parts[0].text;
 
-    // Save messages to Firestore
+    // Structure messages for array push
     const userMessageDoc = {
       role: 'user',
-      content: message,
+      content: message.trim(),
       timestamp: new Date().toISOString(),
     };
 
@@ -200,16 +200,17 @@ router.post('/message', verifyToken, async (req, res) => {
       timestamp: new Date().toISOString(),
     };
 
-    await chatDocRef.set(
+    // ⚡ FIX: Use findOneAndUpdate with upsert to create or push messages array into MongoDB
+    await Chat.findOneAndUpdate(
+      { userId },
       {
-        userId,
-        messages: [...chatMessages, userMessageDoc, aiMessageDoc],
-        updatedAt: new Date().toISOString(),
+        $set: { userId },
+        $push: { messages: { $each: [userMessageDoc, aiMessageDoc] } }
       },
-      { merge: true }
+      { upsert: true, new: true }
     );
 
-    // Return AI message to frontend
+    // Return AI response back to React frontend
     res.json({
       message: aiMessage,
       timestamp: new Date().toISOString(),
@@ -217,23 +218,18 @@ router.post('/message', verifyToken, async (req, res) => {
   } catch (error) {
     console.error('❌ Error processing message:', error);
     
-    // Log specific error information for debugging
     if (error.response) {
       console.error('   Status:', error.response.status);
       console.error('   Data:', error.response.data);
-    } else if (error.request) {
-      console.error('   No response from server. Request details:', error.request);
     } else {
       console.error('   Error:', error.message);
     }
 
     if (error.response?.status === 401) {
-      console.error('🔑 Authentication failed - Invalid Gemini API key');
       return res.status(401).json({ error: 'Gemini API key is invalid or expired' });
     }
 
     if (error.response?.status === 429) {
-      console.error('⏱️  Rate limited by Gemini');
       return res.status(429).json({ error: 'Gemini API rate limit exceeded. Please try again later.' });
     }
 
@@ -254,13 +250,14 @@ router.get('/history/:userId', verifyToken, async (req, res) => {
       return res.status(403).json({ error: 'Unauthorized' });
     }
 
-    const chatDoc = await db.collection('chats').doc(userId).get();
+    // ⚡ FIX: Look up conversation collection via Mongoose
+    const chatDoc = await Chat.findOne({ userId }).lean();
 
-    if (!chatDoc.exists) {
+    if (!chatDoc) {
       return res.json({ messages: [] });
     }
 
-    res.json(chatDoc.data());
+    res.json(chatDoc);
   } catch (error) {
     console.error('Error fetching chat history:', error);
     res.status(500).json({ error: 'Failed to fetch chat history' });
