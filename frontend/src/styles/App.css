@@ -1256,7 +1256,6 @@ body {
   opacity: 0.7;
   cursor: not-allowed;
 }
-}
 
 .add-post-btn:hover {
   background-color: #0066cc;
@@ -1563,42 +1562,4 @@ body {
   gap: 1.5rem;
   font-size: 0.9rem;
   color: #65676b;
-}
-
-/* Responsive Design for Search */
-@media (max-width: 768px) {
-  .search-container {
-    padding: 1rem;
-  }
-  
-  .search-header h1 {
-    font-size: 1.5rem;
-  }
-  
-  .user-result-item,
-  .post-result-item {
-    padding: 1rem;
-  }
-}
-
-  .login-card {
-    padding: 2rem;
-  }
-
-  .message-content {
-    max-width: 90%;
-  }
-
-  .chat-input-form {
-    flex-direction: column;
-    padding: 1rem;
-  }
-
-  .send-btn {
-    width: 100%;
-  }
-
-  .message-badge {
-    font-size: 1.2rem;
-  }
 }

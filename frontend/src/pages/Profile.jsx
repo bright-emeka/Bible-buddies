@@ -9,8 +9,8 @@ import {
   checkFollowing, 
   updateUserProfile,
   createPost,
-  logOut
 } from '../services/api';
+import { logOut } from '../services/auth';
 import { auth } from '../services/firebase';
 import { onAuthStateChanged } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
